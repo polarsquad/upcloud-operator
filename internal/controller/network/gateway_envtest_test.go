@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -75,14 +76,18 @@ var _ = Describe("Gateway group end to end against the fake API", func() {
 			g.Expect(reconciler.IsReady(&gt)).To(BeTrue())
 		}, "30s", "250ms").Should(Succeed())
 
-		// Delete in reverse: tunnel, connection, gateway, then the fake is empty.
+		// Delete in reverse: tunnel, connection, gateway, then the router.
 		Expect(k8sClient.Delete(ctx, tun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, conn)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, gw)).To(Succeed())
-		// Give the gateway a moment to drop; the connection delete is blocked
-		// while tunnels/routes remain, but the adapter handles that order.
-		// Router deletion is not part of the gateway fake assertion.
-		_ = router
 		Eventually(func() int { return len(gwAPI.Gateways) }, "30s", "250ms").Should(BeZero())
+		// The router is reconciled into the SAME fakeAPI the Network spec asserts
+		// on, so it must be torn down too, or its router leaks into that spec's
+		// final "fake is empty" check (Ginkgo runs the specs in random order).
+		Expect(k8sClient.Delete(ctx, router)).To(Succeed())
+		Eventually(func() error {
+			return k8sClient.Get(ctx, client.ObjectKeyFromObject(router), &networkv1alpha1.Router{})
+		}, "30s", "250ms").Should(MatchError(apierrors.IsNotFound, "router CR should be gone after its finalizer ran"))
+		Eventually(func() int { return len(fakeAPI.Routers) }, "30s", "250ms").Should(BeZero())
 	})
 })

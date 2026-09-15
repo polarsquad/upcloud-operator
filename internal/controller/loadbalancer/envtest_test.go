@@ -59,7 +59,7 @@ var _ = Describe("Load balancer group end to end against the fake API", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: envtestBE, Namespace: testNS},
 			Spec: lb.LoadBalancerBackendSpec{
 				LoadBalancerRef: common.LocalObjectReference{Name: envtestLB},
-				Name:            "api",
+				Name:            testBackendAPI,
 			},
 		}
 		Expect(k8sClient.Create(ctx, be)).To(Succeed())
@@ -69,7 +69,7 @@ var _ = Describe("Load balancer group end to end against the fake API", func() {
 			Spec: lb.LoadBalancerFrontendSpec{
 				LoadBalancerRef:   common.LocalObjectReference{Name: envtestLB},
 				Name:              "web",
-				Mode:              "http",
+				Mode:              testModeHTTP,
 				Port:              80,
 				DefaultBackendRef: common.LocalObjectReference{Name: envtestBE},
 			},
@@ -81,7 +81,7 @@ var _ = Describe("Load balancer group end to end against the fake API", func() {
 			var b lb.LoadBalancerBackend
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(be), &b)).To(Succeed())
 			g.Expect(reconciler.IsReady(&b)).To(BeTrue())
-			g.Expect(b.Status.Name).To(Equal("api"))
+			g.Expect(b.Status.Name).To(Equal(testBackendAPI))
 
 			var f lb.LoadBalancerFrontend
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fe), &f)).To(Succeed())
@@ -107,13 +107,13 @@ var _ = Describe("Load balancer group end to end against the fake API", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: envtestRule, Namespace: testNS},
 			Spec: lb.LoadBalancerFrontendRuleSpec{
 				FrontendRef: common.LocalObjectReference{Name: envtestFE},
-				Name:        "api",
+				Name:        testBackendAPI,
 				Priority:    10,
 				Matchers: []lb.RuleMatcher{
 					{Type: lb.MatcherTypeSrcIP, SrcIP: &lb.MatcherSrcIP{Value: "10.0.0.0/8"}},
 				},
 				Actions: []lb.RuleAction{
-					{Type: lb.ActionTypeUseBackend, UseBackend: &lb.ActionUseBackend{Backend: "api"}},
+					{Type: lb.ActionTypeUseBackend, UseBackend: &lb.ActionUseBackend{Backend: testBackendAPI}},
 				},
 			},
 		}

@@ -38,77 +38,105 @@ func rangeEnd(v *int) int {
 	return *v
 }
 
-// toMatchers converts the spec matchers to SDK matchers.
+// toMatchers converts the spec matchers to SDK matchers. Each matcher type has
+// a dedicated builder so the dispatcher stays a simple switch (low
+// cyclomatic complexity).
 func toMatchers(in []lb.RuleMatcher) []upcloud.LoadBalancerMatcher {
 	out := make([]upcloud.LoadBalancerMatcher, 0, len(in))
 	for i := range in {
-		m := in[i]
-		uc := upcloud.LoadBalancerMatcher{Type: upcloud.LoadBalancerMatcherType(m.Type), Inverse: m.Inverse}
-		switch m.Type {
-		case lb.MatcherTypeSrcIP:
-			if m.SrcIP != nil {
-				uc.SrcIP = &upcloud.LoadBalancerMatcherSourceIP{Value: m.SrcIP.Value}
-			}
-		case lb.MatcherTypeSrcPort:
-			if m.SrcPort != nil {
-				uc.SrcPort = &upcloud.LoadBalancerMatcherInteger{Method: integerMethod(m.SrcPort.Method), Value: m.SrcPort.Value, RangeStart: rangeStart(m.SrcPort.RangeStart), RangeEnd: rangeEnd(m.SrcPort.RangeEnd)}
-			}
-		case lb.MatcherTypeBodySize:
-			if m.BodySize != nil {
-				uc.BodySize = &upcloud.LoadBalancerMatcherInteger{Method: integerMethod(m.BodySize.Method), Value: m.BodySize.Value, RangeStart: rangeStart(m.BodySize.RangeStart), RangeEnd: rangeEnd(m.BodySize.RangeEnd)}
-			}
-		case lb.MatcherTypePath:
-			if m.Path != nil {
-				uc.Path = &upcloud.LoadBalancerMatcherString{Method: stringMethod(m.Path.Method), Value: m.Path.Value, IgnoreCase: m.Path.IgnoreCase}
-			}
-		case lb.MatcherTypeURL:
-			if m.URL != nil {
-				uc.URL = &upcloud.LoadBalancerMatcherString{Method: stringMethod(m.URL.Method), Value: m.URL.Value, IgnoreCase: m.URL.IgnoreCase}
-			}
-		case lb.MatcherTypeURLQuery:
-			if m.URLQuery != nil {
-				uc.URLQuery = &upcloud.LoadBalancerMatcherString{Method: stringMethod(m.URLQuery.Method), Value: m.URLQuery.Value, IgnoreCase: m.URLQuery.IgnoreCase}
-			}
-		case lb.MatcherTypeHost:
-			if m.Host != nil {
-				uc.Host = &upcloud.LoadBalancerMatcherHost{Value: m.Host.Value}
-			}
-		case lb.MatcherTypeHTTPMethod:
-			if m.HTTPMethod != nil {
-				uc.HTTPMethod = &upcloud.LoadBalancerMatcherHTTPMethod{Value: httpMethod(m.HTTPMethod.Value)}
-			}
-		case lb.MatcherTypeHTTPStatus:
-			if m.HTTPStatus != nil {
-				uc.HTTPStatus = &upcloud.LoadBalancerMatcherInteger{Method: integerMethod(m.HTTPStatus.Method), Value: m.HTTPStatus.Value, RangeStart: rangeStart(m.HTTPStatus.RangeStart), RangeEnd: rangeEnd(m.HTTPStatus.RangeEnd)}
-			}
-		case lb.MatcherTypeCookie:
-			if m.Cookie != nil {
-				uc.Cookie = &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(m.Cookie.Method), Name: m.Cookie.Name, Value: m.Cookie.Value, IgnoreCase: m.Cookie.IgnoreCase}
-			}
-		case lb.MatcherTypeHeader:
-			if m.Header != nil {
-				uc.Header = &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(m.Header.Method), Name: m.Header.Name, Value: m.Header.Value, IgnoreCase: m.Header.IgnoreCase}
-			}
-		case lb.MatcherTypeRequestHeader:
-			if m.RequestHeader != nil {
-				uc.RequestHeader = &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(m.RequestHeader.Method), Name: m.RequestHeader.Name, Value: m.RequestHeader.Value, IgnoreCase: m.RequestHeader.IgnoreCase}
-			}
-		case lb.MatcherTypeResponseHeader:
-			if m.ResponseHeader != nil {
-				uc.ResponseHeader = &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(m.ResponseHeader.Method), Name: m.ResponseHeader.Name, Value: m.ResponseHeader.Value, IgnoreCase: m.ResponseHeader.IgnoreCase}
-			}
-		case lb.MatcherTypeURLParam:
-			if m.URLParam != nil {
-				uc.URLParam = &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(m.URLParam.Method), Name: m.URLParam.Name, Value: m.URLParam.Value, IgnoreCase: m.URLParam.IgnoreCase}
-			}
-		case lb.MatcherTypeNumMembersUp:
-			if m.NumMembersUp != nil {
-				uc.NumMembersUp = &upcloud.LoadBalancerMatcherNumMembersUp{Method: integerMethod(m.NumMembersUp.Method), Value: m.NumMembersUp.Value, Backend: m.NumMembersUp.Backend}
-			}
-		}
-		out = append(out, uc)
+		out = append(out, toMatcher(in[i]))
 	}
 	return out
+}
+
+func toMatcher(m lb.RuleMatcher) upcloud.LoadBalancerMatcher {
+	uc := upcloud.LoadBalancerMatcher{Type: upcloud.LoadBalancerMatcherType(m.Type), Inverse: m.Inverse}
+	switch m.Type {
+	case lb.MatcherTypeSrcIP:
+		uc.SrcIP = srcIP(m)
+	case lb.MatcherTypeSrcPort:
+		uc.SrcPort = intMatcher(m.SrcPort)
+	case lb.MatcherTypeBodySize:
+		uc.BodySize = intMatcher(m.BodySize)
+	case lb.MatcherTypePath:
+		uc.Path = strMatcher(m.Path)
+	case lb.MatcherTypeURL:
+		uc.URL = strMatcher(m.URL)
+	case lb.MatcherTypeURLQuery:
+		uc.URLQuery = strMatcher(m.URLQuery)
+	case lb.MatcherTypeHost:
+		uc.Host = host(m)
+	case lb.MatcherTypeHTTPMethod:
+		uc.HTTPMethod = httpMethodMatcher(m)
+	case lb.MatcherTypeHTTPStatus:
+		uc.HTTPStatus = intMatcher(m.HTTPStatus)
+	case lb.MatcherTypeCookie:
+		uc.Cookie = strArgMatcher(m.Cookie)
+	case lb.MatcherTypeHeader:
+		uc.Header = strArgMatcher(m.Header)
+	case lb.MatcherTypeRequestHeader:
+		uc.RequestHeader = strArgMatcher(m.RequestHeader)
+	case lb.MatcherTypeResponseHeader:
+		uc.ResponseHeader = strArgMatcher(m.ResponseHeader)
+	case lb.MatcherTypeURLParam:
+		uc.URLParam = strArgMatcher(m.URLParam)
+	case lb.MatcherTypeNumMembersUp:
+		uc.NumMembersUp = numMembersUp(m)
+	}
+	return uc
+}
+
+func srcIP(m lb.RuleMatcher) *upcloud.LoadBalancerMatcherSourceIP {
+	if m.SrcIP == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherSourceIP{Value: m.SrcIP.Value}
+}
+
+func host(m lb.RuleMatcher) *upcloud.LoadBalancerMatcherHost {
+	if m.Host == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherHost{Value: m.Host.Value}
+}
+
+func httpMethodMatcher(m lb.RuleMatcher) *upcloud.LoadBalancerMatcherHTTPMethod {
+	if m.HTTPMethod == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherHTTPMethod{Value: httpMethod(m.HTTPMethod.Value)}
+}
+
+func numMembersUp(m lb.RuleMatcher) *upcloud.LoadBalancerMatcherNumMembersUp {
+	if m.NumMembersUp == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherNumMembersUp{Method: integerMethod(m.NumMembersUp.Method), Value: m.NumMembersUp.Value, Backend: m.NumMembersUp.Backend}
+}
+
+// intMatcher converts a *MatcherInteger to the SDK form (nil passes through).
+func intMatcher(in *lb.MatcherInteger) *upcloud.LoadBalancerMatcherInteger {
+	if in == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherInteger{Method: integerMethod(in.Method), Value: in.Value, RangeStart: rangeStart(in.RangeStart), RangeEnd: rangeEnd(in.RangeEnd)}
+}
+
+// strMatcher converts a *MatcherString to the SDK form (nil passes through).
+func strMatcher(in *lb.MatcherString) *upcloud.LoadBalancerMatcherString {
+	if in == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherString{Method: stringMethod(in.Method), Value: in.Value, IgnoreCase: in.IgnoreCase}
+}
+
+// strArgMatcher converts a *MatcherStringWithArgument to the SDK form (nil
+// passes through).
+func strArgMatcher(in *lb.MatcherStringWithArgument) *upcloud.LoadBalancerMatcherStringWithArgument {
+	if in == nil {
+		return nil
+	}
+	return &upcloud.LoadBalancerMatcherStringWithArgument{Method: stringMethod(in.Method), Name: in.Name, Value: in.Value, IgnoreCase: in.IgnoreCase}
 }
 
 // toActions converts the spec actions to SDK actions.

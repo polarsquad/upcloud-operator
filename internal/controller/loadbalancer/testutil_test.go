@@ -32,6 +32,9 @@ const (
 	testReadyType   = "Ready"
 	publicType      = "public"
 	bundleType      = "manual"
+	testModeHTTP    = "http"
+	testBackendAPI  = "api"
+	testBackendAlt  = "be2"
 	testMethodExact = "exact"
 	testAPIPath     = "/api"
 )
@@ -75,7 +78,7 @@ func readyFrontend(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
 		Spec: lb.LoadBalancerFrontendSpec{
 			LoadBalancerRef:   commonLocalRef(parentName),
 			Name:              feName,
-			Mode:              "http",
+			Mode:              testModeHTTP,
 			Port:              80,
 			DefaultBackendRef: commonLocalRef(backendName),
 			Networks:          []lb.FrontendNetwork{{Name: publicType}},

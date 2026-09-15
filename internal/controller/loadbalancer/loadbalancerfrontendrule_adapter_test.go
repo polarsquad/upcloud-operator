@@ -47,9 +47,9 @@ func TestRuleCreateDriftDelete(t *testing.T) {
 
 	// Drift: change the action backend to a second backend.
 	api.LoadBalancers[parentUUID].Backends = append(api.LoadBalancers[parentUUID].Backends,
-		upcloud.LoadBalancerBackend{Name: "be2"})
+		upcloud.LoadBalancerBackend{Name: testBackendAlt})
 	r.Spec.Actions = []lb.RuleAction{
-		{Type: "use_backend", UseBackend: &lb.ActionUseBackend{Backend: "be2"}},
+		{Type: "use_backend", UseBackend: &lb.ActionUseBackend{Backend: testBackendAlt}},
 	}
 	obs, err = a.Observe(gctx(), r)
 	g.Expect(err).NotTo(HaveOccurred())

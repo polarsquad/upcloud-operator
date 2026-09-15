@@ -25,7 +25,7 @@ func TestFrontendCreateDriftDelete(t *testing.T) {
 		Spec: lb.LoadBalancerFrontendSpec{
 			LoadBalancerRef:   commonLocalRef(parentName),
 			Name:              "fe1",
-			Mode:              "http",
+			Mode:              testModeHTTP,
 			Port:              80,
 			DefaultBackendRef: commonLocalRef(backendName),
 			Networks:          []lb.FrontendNetwork{{Name: publicType}},
@@ -65,7 +65,7 @@ func TestFrontendParentMissing(t *testing.T) {
 
 	fe := &lb.LoadBalancerFrontend{
 		ObjectMeta: metav1.ObjectMeta{Name: "fe2", Namespace: testNS},
-		Spec:       lb.LoadBalancerFrontendSpec{LoadBalancerRef: commonLocalRef("nope"), Name: "fe2", Mode: "http", Port: 80, DefaultBackendRef: commonLocalRef("be")},
+		Spec:       lb.LoadBalancerFrontendSpec{LoadBalancerRef: commonLocalRef("nope"), Name: "fe2", Mode: testModeHTTP, Port: 80, DefaultBackendRef: commonLocalRef("be")},
 	}
 	_, err := a.Observe(gctx(), fe)
 	g.Expect(err).To(MatchError(ContainSubstring("LoadBalancer")))

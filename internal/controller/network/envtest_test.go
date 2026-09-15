@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -35,11 +36,12 @@ var _ = Describe("Network group end to end against the fake API", func() {
 		// deleting the router; the router's DeleteRouter 409s (and requeues)
 		// while a network is still attached, so an unordered delete is flaky.
 		Expect(k8sClient.Delete(ctx, net)).To(Succeed())
-		Eventually(func() bool {
-			return client.IgnoreNotFound(
-				k8sClient.Get(ctx, client.ObjectKeyFromObject(net), &networkv1alpha1.Network{}),
-			) == nil
-		}, "20s", "250ms").Should(BeTrue())
+		// The Network CR is gone only after its finalizer has run, which happens
+		// after DeleteNetwork has removed it from the fake. IgnoreNotFound returns
+		// nil for BOTH a found and a not-found object, so assert the error directly.
+		Eventually(func() error {
+			return k8sClient.Get(ctx, client.ObjectKeyFromObject(net), &networkv1alpha1.Network{})
+		}, "20s", "250ms").Should(MatchError(apierrors.IsNotFound, "network CR should be gone after its finalizer ran"))
 		Expect(k8sClient.Delete(ctx, router)).To(Succeed())
 		Eventually(func() int { return len(fakeAPI.Networks) + len(fakeAPI.Routers) }, "20s", "250ms").Should(BeZero())
 	})

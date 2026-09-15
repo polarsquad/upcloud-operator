@@ -48,7 +48,7 @@ func TestBackendCreateDriftDelete(t *testing.T) {
 	g.Expect(stored.Members).To(BeEmpty())
 
 	// Drift: change health check type.
-	be.Spec.Properties.HealthCheckType = "http"
+	be.Spec.Properties.HealthCheckType = testModeHTTP
 	obs, err = a.Observe(ctx, be)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(obs.UpToDate).To(BeFalse())
@@ -68,7 +68,7 @@ func TestBackendParentGoneDeleteNil(t *testing.T) {
 	c := newLBClient(t)
 	a := &LoadBalancerBackendAdapter{API: api, Client: c}
 	be := &lb.LoadBalancerBackend{
-		ObjectMeta: metav1.ObjectMeta{Name: "be2", Namespace: testNS},
+		ObjectMeta: metav1.ObjectMeta{Name: testBackendAlt, Namespace: testNS},
 		Spec:       lb.LoadBalancerBackendSpec{LoadBalancerRef: commonLocalRef(parentName)},
 	}
 	ctx := gctx()
