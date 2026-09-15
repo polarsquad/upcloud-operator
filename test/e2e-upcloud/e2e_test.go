@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,7 +57,27 @@ var (
 	kindCluster  = fmt.Sprintf("upcloud-e2e-%s", runID)
 	svc          *upcloudsvc.Service
 	probes       []probe
+	repoRoot     string
 )
+
+// resolveRepoRoot walks up from the package directory to the repository
+// root (the directory containing the Makefile). go test runs the suite in
+// the package directory, but the Make targets and the kustomize bases /
+// sample manifests use paths relative to the root, so every external
+// command must be anchored there.
+func resolveRepoRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		Fail(fmt.Sprintf("cannot resolve the working directory: %v", err))
+	}
+	for d := dir; d != string(os.PathSeparator); d = filepath.Dir(d) {
+		if _, err := os.Stat(filepath.Join(d, "Makefile")); err == nil {
+			return d
+		}
+	}
+	Fail(fmt.Sprintf("no Makefile found above %s; cannot locate the repository root", dir))
+	return ""
+}
 
 // probe records one UpCloud resource created in this run and how to check
 // whether it still exists, so teardown can verify it is really gone.
@@ -72,6 +94,8 @@ func TestE2EUpCloud(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	repoRoot = resolveRepoRoot()
+
 	if os.Getenv("UPCLOUD_TOKEN") == "" {
 		Skip("UPCLOUD_TOKEN is not set; skipping the real-API e2e suite")
 	}
@@ -382,9 +406,16 @@ func waitReady(kind, name string, timeout time.Duration) {
 	}, timeout, 5*time.Second).Should(Equal("True"), "%s/%s should be Ready", kind, name)
 }
 
+// runCmd runs an external command from the repository root and returns
+// its combined output. Failures are wrapped with the output so the
+// reason is visible in the suite log (a bare ExitError hides it).
 func runCmd(cmd *exec.Cmd) (string, error) {
+	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return string(out), fmt.Errorf("%s: %w (output: %s)", strings.Join(cmd.Args, " "), err, out)
+	}
+	return string(out), nil
 }
 
 func trim(s string) string {
