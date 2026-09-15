@@ -18,6 +18,7 @@ rules:
 - apiGroups:
   - database.upcloud.polarsquad.com
   resources:
+  - manageddatabaselogicaldatabases
   - manageddatabases
   - manageddatabaseusers
   verbs:
@@ -31,6 +32,7 @@ rules:
 - apiGroups:
   - database.upcloud.polarsquad.com
   resources:
+  - manageddatabaselogicaldatabases/finalizers
   - manageddatabases/finalizers
   - manageddatabaseusers/finalizers
   verbs:
@@ -38,6 +40,7 @@ rules:
 - apiGroups:
   - database.upcloud.polarsquad.com
   resources:
+  - manageddatabaselogicaldatabases/status
   - manageddatabases/status
   - manageddatabaseusers/status
   verbs:

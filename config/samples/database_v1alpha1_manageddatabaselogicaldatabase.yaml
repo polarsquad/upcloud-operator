@@ -1,0 +1,13 @@
+apiVersion: database.upcloud.polarsquad.com/v1alpha1
+kind: ManagedDatabaseLogicalDatabase
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: manageddatabaselogicaldatabase-sample
+spec:
+  serviceRef:
+    name: manageddatabase-sample
+  name: analytics
+  lcCollate: "C"
+  lcCtype: "C"
