@@ -1,0 +1,11 @@
+apiVersion: database.upcloud.polarsquad.com/v1alpha1
+kind: ManagedDatabaseUser
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: manageddatabaseuser-sample
+spec:
+  serviceRef:
+    name: manageddatabase-sample
+  username: sampleuser

@@ -5,6 +5,7 @@ resources:
 - bases/network.upcloud.polarsquad.com_networks.yaml
 - bases/network.upcloud.polarsquad.com_routers.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabases.yaml
+- bases/database.upcloud.polarsquad.com_manageddatabaseusers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

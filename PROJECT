@@ -37,4 +37,13 @@ resources:
   kind: ManagedDatabase
   path: github.com/polarsquad/upcloud-operator/api/database/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: upcloud.polarsquad.com
+  group: database
+  kind: ManagedDatabaseUser
+  path: github.com/polarsquad/upcloud-operator/api/database/v1alpha1
+  version: v1alpha1
 version: "3"

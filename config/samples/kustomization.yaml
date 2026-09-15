@@ -3,4 +3,5 @@ resources:
 - network_v1alpha1_network.yaml
 - network_v1alpha1_router.yaml
 - database_v1alpha1_manageddatabase.yaml
+- database_v1alpha1_manageddatabaseuser.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

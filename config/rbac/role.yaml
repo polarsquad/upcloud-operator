@@ -19,6 +19,7 @@ rules:
   - database.upcloud.polarsquad.com
   resources:
   - manageddatabases
+  - manageddatabaseusers
   verbs:
   - create
   - delete
@@ -31,12 +32,14 @@ rules:
   - database.upcloud.polarsquad.com
   resources:
   - manageddatabases/finalizers
+  - manageddatabaseusers/finalizers
   verbs:
   - update
 - apiGroups:
   - database.upcloud.polarsquad.com
   resources:
   - manageddatabases/status
+  - manageddatabaseusers/status
   verbs:
   - get
   - patch
