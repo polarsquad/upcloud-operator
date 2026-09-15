@@ -69,7 +69,7 @@ func (a *ManagedDatabaseUserAdapter) desiredPassword(ctx context.Context, u *dat
 	if u.Spec.PasswordSecretRef != nil {
 		return a.passwordFromSecret(ctx, u.Namespace, u.Spec.PasswordSecretRef.Name, u.Spec.PasswordSecretRef.Key)
 	}
-	return a.passwordFromSecret(ctx, u.Namespace, u.ConnectionSecretName(), "password")
+	return a.passwordFromSecret(ctx, u.Namespace, u.ConnectionSecretName(), SecretKeyPassword)
 }
 
 // Observe implements reconciler.Adapter. A missing user reports
@@ -245,11 +245,11 @@ func (a *ManagedDatabaseUserAdapter) writeCredentialsSecret(ctx context.Context,
 	uri := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=%s",
 		u.ExternalUsername(), password, p.Host, p.Port, p.DatabaseName, p.SSLMode)
 	data := map[string][]byte{
-		"username": []byte(u.ExternalUsername()),
-		"password": []byte(password),
-		"host":     []byte(p.Host),
-		"port":     []byte(p.Port),
-		"uri":      []byte(uri),
+		SecretKeyUsername: []byte(u.ExternalUsername()),
+		SecretKeyPassword: []byte(password),
+		SecretKeyHost:     []byte(p.Host),
+		SecretKeyPort:     []byte(p.Port),
+		SecretKeyURI:      []byte(uri),
 	}
 	return k8s.WriteOwnedSecret(ctx, a.Client, u, u.ConnectionSecretName(), data)
 }

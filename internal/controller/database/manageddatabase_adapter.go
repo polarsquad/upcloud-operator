@@ -378,13 +378,13 @@ func networksEqual(a, b []upcloud.ManagedDatabaseNetwork) bool {
 func (a *ManagedDatabaseAdapter) writeConnectionSecret(ctx context.Context, d *databasev1alpha1.ManagedDatabase, db *upcloud.ManagedDatabase) error {
 	p := db.ServiceURIParams
 	data := map[string][]byte{
-		"uri":      []byte(db.ServiceURI),
-		"host":     []byte(p.Host),
-		"port":     []byte(p.Port),
-		"user":     []byte(p.User),
-		"password": []byte(p.Password),
-		"dbname":   []byte(p.DatabaseName),
-		"sslmode":  []byte(p.SSLMode),
+		SecretKeyURI:      []byte(db.ServiceURI),
+		SecretKeyHost:     []byte(p.Host),
+		SecretKeyPort:     []byte(p.Port),
+		SecretKeyUser:     []byte(p.User),
+		SecretKeyPassword: []byte(p.Password),
+		SecretKeyDBName:   []byte(p.DatabaseName),
+		SecretKeySSLMode:  []byte(p.SSLMode),
 	}
 	return k8s.WriteOwnedSecret(ctx, a.Client, d, d.ConnectionSecretName(), data)
 }

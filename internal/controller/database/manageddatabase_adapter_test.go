@@ -36,8 +36,8 @@ func newManagedDatabase() *databasev1alpha1.ManagedDatabase {
 		ObjectMeta: metav1.ObjectMeta{Name: "md1", Namespace: "ns", UID: "md-uid"},
 		Spec: databasev1alpha1.ManagedDatabaseSpec{
 			Type:       "pg",
-			Plan:       "3x25",
-			Zone:       "fi-hel1",
+			Plan:       testPlan,
+			Zone:       testZone,
 			Properties: &apiextensionsv1.JSON{Raw: []byte(`{"version":"16","ip_filter":["0.0.0.0/0"]}`)},
 		},
 	}
@@ -46,7 +46,7 @@ func newManagedDatabase() *databasev1alpha1.ManagedDatabase {
 func readyNetworkCR(name, uuid string) *networkv1alpha1.Network {
 	return &networkv1alpha1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns", UID: "net-uid", Generation: 1},
-		Spec:       networkv1alpha1.NetworkSpec{Zone: "fi-hel1"},
+		Spec:       networkv1alpha1.NetworkSpec{Zone: testZone},
 		Status: networkv1alpha1.NetworkStatus{
 			UUID: uuid,
 			Conditions: []metav1.Condition{{
@@ -74,8 +74,8 @@ func TestManagedDatabaseCreateSetsUUIDAndUsesDefaults(t *testing.T) {
 	g.Expect(created.Title).To(Equal("md1"))
 	g.Expect(created.Name).To(Equal("md1"))
 	g.Expect(string(created.Type)).To(Equal("pg"))
-	g.Expect(created.Plan).To(Equal("3x25"))
-	g.Expect(created.Zone).To(Equal("fi-hel1"))
+	g.Expect(created.Plan).To(Equal(testPlan))
+	g.Expect(created.Zone).To(Equal(testZone))
 	g.Expect(created.Properties["version"]).To(Equal("16"))
 	g.Expect(created.Properties["ip_filter"]).To(Equal([]any{"0.0.0.0/0"}))
 }
@@ -96,11 +96,11 @@ func TestManagedDatabaseObserveWritesConnectionSecret(t *testing.T) {
 	g.Expect(obs.Ready).To(BeTrue())
 
 	var sec corev1.Secret
-	g.Expect(c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "md1-connection"}, &sec)).To(Succeed())
-	for _, k := range []string{"uri", "host", "port", "user", "password", "dbname", "sslmode"} {
+	g.Expect(c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: md1ConnName}, &sec)).To(Succeed())
+	for _, k := range []string{SecretKeyURI, SecretKeyHost, SecretKeyPort, SecretKeyUser, SecretKeyPassword, SecretKeyDBName, SecretKeySSLMode} {
 		g.Expect(sec.Data).To(HaveKey(k), "secret missing key %s", k)
 	}
-	g.Expect(string(sec.Data["host"])).To(Equal(md.Status.UUID + ".db.upclouddatabases.com"))
+	g.Expect(string(sec.Data[SecretKeyHost])).To(Equal(md.Status.UUID + ".db.upclouddatabases.com"))
 	g.Expect(string(sec.Data["port"])).To(Equal("11569"))
 	g.Expect(string(sec.Data["user"])).To(Equal("upadmin"))
 	g.Expect(string(sec.Data["password"])).To(Equal("fake-pw"))
@@ -128,14 +128,14 @@ func TestManagedDatabaseObserveNotReadyWhileRebuilding(t *testing.T) {
 	g.Expect(obs.Message).To(Equal("state rebuilding"))
 
 	var sec corev1.Secret
-	err = c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "md1-connection"}, &sec)
+	err = c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: md1ConnName}, &sec)
 	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
 	api.StateOverride = ""
 	obs, err = a.Observe(ctx, md)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(obs.Ready).To(BeTrue())
-	g.Expect(c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: "md1-connection"}, &sec)).To(Succeed())
+	g.Expect(c.Get(ctx, types.NamespacedName{Namespace: "ns", Name: md1ConnName}, &sec)).To(Succeed())
 }
 
 func TestManagedDatabaseObserveDriftOnPlanAndUpdateModifies(t *testing.T) {
