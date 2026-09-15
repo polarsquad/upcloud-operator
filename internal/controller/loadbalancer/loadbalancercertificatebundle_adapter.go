@@ -94,8 +94,12 @@ func (a *LoadBalancerCertificateBundleAdapter) Observe(ctx context.Context, b *l
 			return reconciler.Observation{}, err
 		}
 		// The API echoes the certificate (never the key), so up-to-date is
-		// cert equality. Key rotation with an unchanged cert is undetectable.
+		// cert equality. A key-only rotation is otherwise undetectable; the
+		// rotation token is the operator-side marker for it.
 		upToDate = material != nil && bundle.Certificate == material.Cert
+		if upToDate && b.Status.RotationToken != b.Spec.RotationToken {
+			upToDate = false
+		}
 	} else {
 		// Dynamic bundles: the hostnames are fixed at create; existence means
 		// up to date.
@@ -139,6 +143,7 @@ func (a *LoadBalancerCertificateBundleAdapter) Create(ctx context.Context, b *lb
 		return fmt.Errorf("create certificate bundle: %w", err)
 	}
 	b.Status.UUID = created.UUID
+	b.Status.RotationToken = b.Spec.RotationToken
 	return nil
 }
 
@@ -175,6 +180,7 @@ func (a *LoadBalancerCertificateBundleAdapter) Update(ctx context.Context, b *lb
 	if _, err := a.API.ModifyLoadBalancerCertificateBundle(ctx, modify); err != nil {
 		return fmt.Errorf("modify certificate bundle: %w", err)
 	}
+	b.Status.RotationToken = b.Spec.RotationToken
 	return nil
 }
 

@@ -42,6 +42,12 @@ type LoadBalancerCertificateBundleSpec struct {
 	CertificateSecretRef *common.LocalObjectReference `json:"certificateSecretRef,omitempty"`
 	// Hostnames the dynamic bundle should cover. Required for dynamic bundles.
 	Hostnames []string `json:"hostnames,omitempty"`
+	// RotationToken is an operator-side rotation marker, not an UpCloud
+	// field. Bumping it forces the certificate material to be re-read from
+	// certificateSecretRef and re-applied (manual and authority bundles;
+	// the API never echoes private keys, so a key-only rotation is
+	// otherwise undetectable).
+	RotationToken string `json:"rotationToken,omitempty"`
 	// +kubebuilder:default=Delete
 	DeletionPolicy common.DeletionPolicy `json:"deletionPolicy,omitempty"`
 }
@@ -60,6 +66,9 @@ type LoadBalancerCertificateBundleStatus struct {
 	NotBefore string `json:"notBefore,omitempty"`
 	// KeyType of the private key, for example rsa.
 	KeyType string `json:"keyType,omitempty"`
+	// RotationToken is the last spec.rotationToken for which the
+	// certificate material was applied to UpCloud.
+	RotationToken string `json:"rotationToken,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -60,12 +60,13 @@ func commonLocalRef(name string) common.LocalObjectReference {
 }
 
 const (
-	backendName = "be"
-	feName      = "fe"
-	ruleName    = "rule"
-	bundleName  = "bundle"
-	bundleUUID  = "cb-0001"
-	certPEM     = "CERT"
+	backendName   = "be"
+	feName        = "fe"
+	ruleName      = "rule"
+	bundleName    = "bundle"
+	bundleUUID    = "cb-0001"
+	certPEM       = "CERT"
+	tlsSecretName = "tls"
 )
 
 // readyFrontend creates a Ready LoadBalancerFrontend CR named feName and the

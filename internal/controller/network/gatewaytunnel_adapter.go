@@ -17,7 +17,8 @@ import (
 // GatewayTunnelAdapter maps GatewayTunnel onto the UpCloud gateway tunnel API.
 // The SDK has no tunnel modify, so Update replaces: delete then create. A spec
 // change therefore re-establishes the VPN. The PSK is read at create time only;
-// the API never returns it, so PSK drift is undetectable.
+// the API never returns it, so spec.rotationToken is the operator-side marker
+// that forces a PSK re-apply (a bump replaces the tunnel).
 type GatewayTunnelAdapter struct {
 	API    upcloudapi.GatewayAPI
 	Client client.Client
@@ -68,6 +69,12 @@ func (a *GatewayTunnelAdapter) Observe(ctx context.Context, t *networkv1alpha1.G
 	// "established", so compare against the literal to accept either.
 	ready := string(tun.OperationalState) == "established"
 	upToDate := tunnelMatches(tun, t.Spec)
+	// The API never returns the PSK, so a token bump is the only signal that
+	// the PSK in the Secret changed: force the delete+create path so the
+	// current Secret value is re-sent.
+	if upToDate && t.Status.RotationToken != t.Spec.RotationToken {
+		upToDate = false
+	}
 	return reconciler.Observation{Exists: true, UpToDate: upToDate, Ready: ready}, nil
 }
 
@@ -93,6 +100,7 @@ func (a *GatewayTunnelAdapter) Create(ctx context.Context, t *networkv1alpha1.Ga
 	t.Status.GatewayUUID = gwUUID
 	t.Status.ConnectionUUID = connUUID
 	t.Status.UUID = created.UUID
+	t.Status.RotationToken = t.Spec.RotationToken
 	return nil
 }
 

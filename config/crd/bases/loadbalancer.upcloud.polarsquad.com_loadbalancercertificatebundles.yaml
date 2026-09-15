@@ -88,6 +88,14 @@ spec:
                 maxLength: 64
                 pattern: ^[a-zA-Z0-9_-]+$
                 type: string
+              rotationToken:
+                description: |-
+                  RotationToken is an operator-side rotation marker, not an UpCloud
+                  field. Bumping it forces the certificate material to be re-read from
+                  certificateSecretRef and re-applied (manual and authority bundles;
+                  the API never echoes private keys, so a key-only rotation is
+                  otherwise undetectable).
+                type: string
               type:
                 description: Type of the bundle. Immutable.
                 enum:
@@ -178,6 +186,11 @@ spec:
                 type: string
               operationalState:
                 description: Current operational state, for example idle.
+                type: string
+              rotationToken:
+                description: |-
+                  RotationToken is the last spec.rotationToken for which the
+                  certificate material was applied to UpCloud.
                 type: string
               uuid:
                 description: UUID of the bundle in UpCloud.

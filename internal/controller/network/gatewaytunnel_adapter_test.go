@@ -27,11 +27,11 @@ func putFakeTunnelChain(t *testing.T, api *fake.GatewayAPI, gwUUID, connUUID str
 	api.Gateways[gwUUID] = gw
 }
 
-func readyConnectionCR(name, uuid string) *networkv1alpha1.GatewayConnection {
+func readyConnectionCR(name, gwUUID, uuid string) *networkv1alpha1.GatewayConnection {
 	return &networkv1alpha1.GatewayConnection{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS, UID: "conn-uid", Generation: 1},
 		Status: networkv1alpha1.GatewayConnectionStatus{
-			GatewayUUID: "gw-1",
+			GatewayUUID: gwUUID,
 			UUID:        uuid,
 			Conditions: []metav1.Condition{{
 				Type: testReadyType, Status: metav1.ConditionTrue, Reason: testReadyMsg,
@@ -73,7 +73,7 @@ func TestGatewayTunnelCreateWithPSKFromSecret(t *testing.T) {
 	ctx := context.Background()
 
 	g.Expect(c.Create(ctx, pskSecret())).To(Succeed())
-	g.Expect(c.Create(ctx, readyConnectionCR("conn1", "conn-1"))).To(Succeed())
+	g.Expect(c.Create(ctx, readyConnectionCR(testConnName, testGatewayUUID, testConnectionUUID))).To(Succeed())
 	putFakeTunnelChain(t, api, "gw-1", "conn-1")
 
 	tun := newGatewayTunnel()
@@ -97,7 +97,7 @@ func TestGatewayTunnelMissingSecretIsDependencyError(t *testing.T) {
 	a := &GatewayTunnelAdapter{API: api, Client: c}
 	ctx := context.Background()
 
-	g.Expect(c.Create(ctx, readyConnectionCR("conn1", "conn-1"))).To(Succeed())
+	g.Expect(c.Create(ctx, readyConnectionCR(testConnName, testGatewayUUID, testConnectionUUID))).To(Succeed())
 	putFakeTunnelChain(t, api, "gw-1", "conn-1")
 
 	tun := newGatewayTunnel()
@@ -113,7 +113,7 @@ func TestGatewayTunnelRemoteAddressDriftReplaces(t *testing.T) {
 	ctx := context.Background()
 
 	g.Expect(c.Create(ctx, pskSecret())).To(Succeed())
-	g.Expect(c.Create(ctx, readyConnectionCR("conn1", "conn-1"))).To(Succeed())
+	g.Expect(c.Create(ctx, readyConnectionCR(testConnName, testGatewayUUID, testConnectionUUID))).To(Succeed())
 	putFakeTunnelChain(t, api, "gw-1", "conn-1")
 
 	tun := newGatewayTunnel()
@@ -142,6 +142,45 @@ func TestGatewayTunnelRemoteAddressDriftReplaces(t *testing.T) {
 	conn := api.Gateways["gw-1"].Connections[0]
 	g.Expect(conn.Tunnels).To(HaveLen(1))
 	g.Expect(conn.Tunnels[0].RemoteAddress.Address).To(Equal("203.0.113.99"))
+}
+
+func TestGatewayTunnelRotationTokenForcesPSKReapply(t *testing.T) {
+	g := NewWithT(t)
+	api := fake.NewGatewayAPI()
+	c := newFakeClient(t)
+	a := &GatewayTunnelAdapter{API: api, Client: c}
+	ctx := context.Background()
+
+	tun := newGatewayTunnel()
+	tun.Spec.ConnectionRef = common.LocalObjectReference{Name: "conn-rot"}
+	tun.Spec.RotationToken = "v1"
+	sec := pskSecret()
+	g.Expect(c.Create(ctx, sec)).To(Succeed())
+	g.Expect(c.Create(ctx, readyConnectionCR("conn-rot", "gw-2", "conn-rot-1"))).To(Succeed())
+	putFakeTunnelChain(t, api, "gw-2", "conn-rot-1")
+
+	g.Expect(a.Create(ctx, tun)).To(Succeed())
+	g.Expect(tun.Status.RotationToken).To(Equal("v1"))
+	// With the token recorded, a matching Secret means up to date.
+	g.Expect(obsTunnelUpToDate(a, ctx, tun)).To(BeTrue())
+
+	// The PSK in the Secret changed but no spec field the API echoes did.
+	sec.Data[testPskKey] = []byte("n3w-s3cr3t")
+	g.Expect(c.Update(ctx, sec)).To(Succeed())
+	// The API never returns the PSK, so the drift is invisible on its own.
+	g.Expect(obsTunnelUpToDate(a, ctx, tun)).To(BeTrue())
+
+	// Bumping the token is the operator-side signal: it forces replace.
+	tun.Spec.RotationToken = "v2"
+	g.Expect(obsTunnelUpToDate(a, ctx, tun)).To(BeFalse())
+	g.Expect(a.Update(ctx, tun)).To(Succeed())
+
+	// The new PSK was re-sent to the API and the token is now recorded.
+	g.Expect(tun.Status.RotationToken).To(Equal("v2"))
+	conn := api.Gateways["gw-2"].Connections[0]
+	g.Expect(conn.Tunnels).To(HaveLen(1))
+	g.Expect(conn.Tunnels[0].IPSec.Authentication.PSK).To(Equal("n3w-s3cr3t"))
+	g.Expect(obsTunnelUpToDate(a, ctx, tun)).To(BeTrue())
 }
 
 func TestGatewayTunnelDeleteIdempotent(t *testing.T) {

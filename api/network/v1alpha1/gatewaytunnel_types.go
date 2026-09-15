@@ -72,17 +72,27 @@ type GatewayTunnelSpec struct {
 	// +kubebuilder:validation:Optional
 	IPSec *GatewayTunnelIPSec `json:"ipsec,omitempty"`
 
+	// RotationToken is an operator-side rotation marker, not an UpCloud
+	// field. Bumping it re-reads the PSK from its Secret and replaces the
+	// tunnel (delete + create, which re-establishes the VPN), because the
+	// API never returns the PSK and otherwise a PSK rotation is
+	// undetectable.
+	RotationToken string `json:"rotationToken,omitempty"`
+
 	// +kubebuilder:default=Delete
 	DeletionPolicy common.DeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
 // GatewayTunnelStatus defines the observed state of GatewayTunnel.
 type GatewayTunnelStatus struct {
-	Conditions       []metav1.Condition `json:"conditions,omitempty"`
-	GatewayUUID      string             `json:"gatewayUUID,omitempty"`
-	ConnectionUUID   string             `json:"connectionUUID,omitempty"`
-	UUID             string             `json:"uuid,omitempty"`
-	OperationalState string             `json:"operationalState,omitempty"`
+	Conditions     []metav1.Condition `json:"conditions,omitempty"`
+	GatewayUUID    string             `json:"gatewayUUID,omitempty"`
+	ConnectionUUID string             `json:"connectionUUID,omitempty"`
+	UUID           string             `json:"uuid,omitempty"`
+	// RotationToken is the last spec.rotationToken for which the PSK was
+	// applied to UpCloud.
+	RotationToken    string `json:"rotationToken,omitempty"`
+	OperationalState string `json:"operationalState,omitempty"`
 }
 
 // +kubebuilder:object:root=true

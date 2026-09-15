@@ -157,6 +157,14 @@ spec:
                 description: RemoteAddress is the peer's public IP.
                 minLength: 1
                 type: string
+              rotationToken:
+                description: |-
+                  RotationToken is an operator-side rotation marker, not an UpCloud
+                  field. Bumping it re-reads the PSK from its Secret and replaces the
+                  tunnel (delete + create, which re-establishes the VPN), because the
+                  API never returns the PSK and otherwise a PSK rotation is
+                  undetectable.
+                type: string
             required:
             - connectionRef
             - localAddressName
@@ -226,6 +234,11 @@ spec:
               gatewayUUID:
                 type: string
               operationalState:
+                type: string
+              rotationToken:
+                description: |-
+                  RotationToken is the last spec.rotationToken for which the PSK was
+                  applied to UpCloud.
                 type: string
               uuid:
                 type: string

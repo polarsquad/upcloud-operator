@@ -177,8 +177,10 @@ to adjust:
   time, so a typo surfaces as an `UpdateFailed` condition, not an
   admission error. Typed properties per engine are planned.
 - **Undetectable secrets.** Tunnel PSKs and certificate private keys are
-  never echoed by the API; rotating the backing Secret does not trigger
-  a re-apply on its own.
+  never echoed by the API; rotating the backing Secret does not trigger a
+  re-apply on its own. Bump `spec.rotationToken` on a GatewayTunnel or
+  LoadBalancerCertificateBundle to force the material to be re-read from
+  its Secret (a tunnel is replaced, re-establishing the VPN).
 - **No implicit recreation.** Most fields are immutable in UpCloud and
   the CRDs enforce it at admission. The one exception is GatewayTunnel:
   any spec change deletes and recreates the tunnel (the API has no
