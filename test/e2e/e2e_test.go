@@ -63,6 +63,13 @@ var _ = Describe("Manager", Ordered, func() {
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to label namespace with restricted policy")
 
+		By("creating the dummy UpCloud credentials secret")
+		cmd = exec.Command("kubectl", "create", "secret", "generic", "upcloud-credentials",
+			"--namespace", namespace,
+			"--from-literal=UPCLOUD_TOKEN=ucat_dummy_token_for_e2e")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to create the dummy UpCloud credentials secret")
+
 		By("installing CRDs")
 		cmd = exec.Command("make", "install")
 		_, err = utils.Run(cmd)
