@@ -1,8 +1,8 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/polarsquad/upcloud-operator/api/common"
 )
@@ -18,7 +18,7 @@ type IPNetwork struct {
 	// +kubebuilder:default=true
 	DHCP *bool `json:"dhcp,omitempty"`
 	// +kubebuilder:default=false
-	DHCPDefaultRoute *bool `json:"dhcpDefaultRoute,omitempty"`
+	DHCPDefaultRoute *bool    `json:"dhcpDefaultRoute,omitempty"`
 	DHCPDns          []string `json:"dhcpDns,omitempty"`
 	DHCPRoutes       []string `json:"dhcpRoutes,omitempty"`
 	// Gateway address. UpCloud picks one when omitted.
@@ -39,7 +39,7 @@ type NetworkSpec struct {
 	// RouterRef attaches the network to a Router CR in the same namespace.
 	RouterRef *common.LocalObjectReference `json:"routerRef,omitempty"`
 	// RouterUUID attaches the network to an existing UpCloud router by UUID.
-	RouterUUID string `json:"routerUUID,omitempty"`
+	RouterUUID string               `json:"routerUUID,omitempty"`
 	Labels     common.UpCloudLabels `json:"labels,omitempty"`
 	// +kubebuilder:default=Delete
 	DeletionPolicy common.DeletionPolicy `json:"deletionPolicy,omitempty"`

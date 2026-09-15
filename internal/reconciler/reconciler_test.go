@@ -39,8 +39,14 @@ func (f *fakeAdapter) Create(_ context.Context, n *networkv1alpha1.Network) erro
 	n.Status.UUID = "created-uuid"
 	return nil
 }
-func (f *fakeAdapter) Update(context.Context, *networkv1alpha1.Network) error { f.updates++; return f.updateErr }
-func (f *fakeAdapter) Delete(context.Context, *networkv1alpha1.Network) error { f.deletes++; return f.delErr }
+func (f *fakeAdapter) Update(context.Context, *networkv1alpha1.Network) error {
+	f.updates++
+	return f.updateErr
+}
+func (f *fakeAdapter) Delete(context.Context, *networkv1alpha1.Network) error {
+	f.deletes++
+	return f.delErr
+}
 
 func network(policy common.DeletionPolicy, finalizers ...string) *networkv1alpha1.Network {
 	return &networkv1alpha1.Network{

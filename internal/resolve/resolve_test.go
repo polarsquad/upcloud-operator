@@ -67,14 +67,15 @@ func TestExternalIDDoesNotRequireReady(t *testing.T) {
 
 func TestNetworkUUIDVariants(t *testing.T) {
 	g := NewWithT(t)
+	const private = "private"
 	c := newClient(t, readyNetwork("uuid-3"))
 	ctx := context.Background()
 
-	id, err := resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Type: "private", UUID: "literal"})
+	id, err := resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Type: private, UUID: "literal"})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(id).To(Equal("literal"))
 
-	id, err = resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Type: "private", NetworkRef: &common.LocalObjectReference{Name: "net"}})
+	id, err = resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Type: private, NetworkRef: &common.LocalObjectReference{Name: "net"}})
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(id).To(Equal("uuid-3"))
 
@@ -82,7 +83,7 @@ func TestNetworkUUIDVariants(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(id).To(BeEmpty())
 
-	_, err = resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Name: "p", Type: "private"})
+	_, err = resolve.NetworkUUID(ctx, c, "ns", common.NetworkAttachment{Name: "p", Type: private})
 	g.Expect(err).To(MatchError(ContainSubstring("requires uuid or networkRef")))
 	g.Expect(err).NotTo(MatchError(reconciler.ErrDependencyNotReady))
 }
