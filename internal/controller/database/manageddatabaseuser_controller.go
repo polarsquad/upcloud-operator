@@ -35,13 +35,14 @@ const FinalizerManagedDatabaseUser = "database.upcloud.polarsquad.com/manageddat
 // SetupManagedDatabaseUserController registers the ManagedDatabaseUser
 // reconciler. Users are re-queued when the ManagedDatabase they reference
 // changes.
-func SetupManagedDatabaseUserController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI) error {
+func SetupManagedDatabaseUserController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*databasev1alpha1.ManagedDatabaseUser]{
 		Client:    mgr.GetClient(),
 		Adapter:   &ManagedDatabaseUserAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *databasev1alpha1.ManagedDatabaseUser { return &databasev1alpha1.ManagedDatabaseUser{} },
 		Finalizer: FinalizerManagedDatabaseUser,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1alpha1.ManagedDatabaseUser{}).
 		Watches(&databasev1alpha1.ManagedDatabase{}, handler.EnqueueRequestsFromMapFunc(

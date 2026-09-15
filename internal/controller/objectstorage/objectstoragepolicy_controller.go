@@ -35,13 +35,14 @@ const FinalizerObjectStoragePolicy = "objectstorage.upcloud.polarsquad.com/objec
 // SetupObjectStoragePolicyController registers the ObjectStoragePolicy
 // reconciler. Policies are re-queued when the ManagedObjectStorage they
 // reference changes.
-func SetupObjectStoragePolicyController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupObjectStoragePolicyController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ObjectStoragePolicy]{
 		Client:    mgr.GetClient(),
 		Adapter:   &ObjectStoragePolicyAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *objectstoragev1alpha1.ObjectStoragePolicy { return &objectstoragev1alpha1.ObjectStoragePolicy{} },
 		Finalizer: FinalizerObjectStoragePolicy,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ObjectStoragePolicy{}).
 		Watches(&objectstoragev1alpha1.ManagedObjectStorage{}, handler.EnqueueRequestsFromMapFunc(

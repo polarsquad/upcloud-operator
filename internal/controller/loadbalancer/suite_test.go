@@ -36,6 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	lb "github.com/polarsquad/upcloud-operator/api/loadbalancer/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 	// +kubebuilder:scaffold:imports
 )
@@ -95,15 +96,15 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(SetupLoadBalancerController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerResolverController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerCertificateBundleController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerBackendController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerBackendMemberController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerBackendTLSConfigController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerFrontendController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerFrontendRuleController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupLoadBalancerFrontendTLSConfigController(mgr, fakeAPI)).To(Succeed())
+	Expect(SetupLoadBalancerController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerResolverController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerCertificateBundleController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerBackendController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerBackendMemberController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerBackendTLSConfigController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerFrontendController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerFrontendRuleController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupLoadBalancerFrontendTLSConfigController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

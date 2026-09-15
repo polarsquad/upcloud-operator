@@ -32,13 +32,14 @@ const FinalizerRouter = "network.upcloud.polarsquad.com/router"
 // +kubebuilder:rbac:groups=network.upcloud.polarsquad.com,resources=routers/finalizers,verbs=update
 
 // SetupRouterController registers the Router reconciler.
-func SetupRouterController(mgr ctrl.Manager, api upcloudapi.NetworkAPI) error {
+func SetupRouterController(mgr ctrl.Manager, api upcloudapi.NetworkAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*networkv1alpha1.Router]{
 		Client:    mgr.GetClient(),
 		Adapter:   &RouterAdapter{API: api},
 		New:       func() *networkv1alpha1.Router { return &networkv1alpha1.Router{} },
 		Finalizer: FinalizerRouter,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkv1alpha1.Router{}).
 		Named("network-router").

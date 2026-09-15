@@ -33,13 +33,14 @@ const FinalizerLoadBalancerFrontendTLSConfig = "loadbalancer.upcloud.polarsquad.
 // +kubebuilder:rbac:groups=loadbalancer.upcloud.polarsquad.com,resources=loadbalancerfrontendtlsconfigs/finalizers,verbs=update
 
 // SetupLoadBalancerFrontendTLSConfigController registers the LoadBalancerFrontendTLSConfig reconciler.
-func SetupLoadBalancerFrontendTLSConfigController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI) error {
+func SetupLoadBalancerFrontendTLSConfigController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*lb.LoadBalancerFrontendTLSConfig]{
 		Client:    mgr.GetClient(),
 		Adapter:   &LoadBalancerFrontendTLSConfigAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *lb.LoadBalancerFrontendTLSConfig { return &lb.LoadBalancerFrontendTLSConfig{} },
 		Finalizer: FinalizerLoadBalancerFrontendTLSConfig,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lb.LoadBalancerFrontendTLSConfig{}).
 		Watches(&lb.LoadBalancerFrontend{}, handler.EnqueueRequestsFromMapFunc(

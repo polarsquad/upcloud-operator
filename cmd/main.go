@@ -20,7 +20,9 @@ import (
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -70,6 +72,7 @@ func main() {
 	var webhookCertPath, webhookCertName, webhookCertKey string
 	var enableLeaderElection bool
 	var probeAddr string
+	var steadyRequeue time.Duration
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
@@ -81,6 +84,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+	flag.DurationVar(&steadyRequeue, "steady-requeue", 5*time.Minute,
+		"The interval at which Ready objects are re-checked for drift against UpCloud (default 5m).")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
@@ -195,95 +200,97 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := networkcontroller.SetupNetworkController(mgr, upcloudSvc); err != nil {
+	rcOpts := reconciler.Options{SteadyRequeue: steadyRequeue}
+
+	if err := networkcontroller.SetupNetworkController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Network")
 		os.Exit(1)
 	}
-	if err := networkcontroller.SetupRouterController(mgr, upcloudSvc); err != nil {
+	if err := networkcontroller.SetupRouterController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Router")
 		os.Exit(1)
 	}
-	if err := networkcontroller.SetupGatewayController(mgr, upcloudSvc); err != nil {
+	if err := networkcontroller.SetupGatewayController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
 		os.Exit(1)
 	}
-	if err := networkcontroller.SetupGatewayConnectionController(mgr, upcloudSvc); err != nil {
+	if err := networkcontroller.SetupGatewayConnectionController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatewayConnection")
 		os.Exit(1)
 	}
-	if err := networkcontroller.SetupGatewayTunnelController(mgr, upcloudSvc); err != nil {
+	if err := networkcontroller.SetupGatewayTunnelController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GatewayTunnel")
 		os.Exit(1)
 	}
-	if err := databasecontroller.SetupManagedDatabaseController(mgr, upcloudSvc); err != nil {
+	if err := databasecontroller.SetupManagedDatabaseController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabase")
 		os.Exit(1)
 	}
-	if err := databasecontroller.SetupManagedDatabaseUserController(mgr, upcloudSvc); err != nil {
+	if err := databasecontroller.SetupManagedDatabaseUserController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabaseUser")
 		os.Exit(1)
 	}
-	if err := databasecontroller.SetupManagedDatabaseLogicalDatabaseController(mgr, upcloudSvc); err != nil {
+	if err := databasecontroller.SetupManagedDatabaseLogicalDatabaseController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabaseLogicalDatabase")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupManagedObjectStorageController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupManagedObjectStorageController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedObjectStorage")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupObjectStoragePolicyController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupObjectStoragePolicyController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStoragePolicy")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupObjectStorageUserController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupObjectStorageUserController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageUser")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupObjectStorageAccessKeyController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupObjectStorageAccessKeyController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageAccessKey")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupObjectStorageBucketController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupObjectStorageBucketController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageBucket")
 		os.Exit(1)
 	}
-	if err := objectstoragecontroller.SetupObjectStorageCustomDomainController(mgr, upcloudSvc); err != nil {
+	if err := objectstoragecontroller.SetupObjectStorageCustomDomainController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageCustomDomain")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerCertificateBundleController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerCertificateBundleController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerCertificateBundle")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerResolverController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerResolverController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerResolver")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerBackendController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerBackendController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackend")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerBackendMemberController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerBackendMemberController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackendMember")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerBackendTLSConfigController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerBackendTLSConfigController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackendTLSConfig")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerFrontendController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontend")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerFrontendRuleController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendRuleController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontendRule")
 		os.Exit(1)
 	}
-	if err := loadbalancercontroller.SetupLoadBalancerFrontendTLSConfigController(mgr, upcloudSvc); err != nil {
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendTLSConfigController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontendTLSConfig")
 		os.Exit(1)
 	}

@@ -35,13 +35,14 @@ const FinalizerLoadBalancerCertificateBundle = "loadbalancer.upcloud.polarsquad.
 // SetupLoadBalancerCertificateBundleController registers the
 // LoadBalancerCertificateBundle reconciler. Bundles are account-level, so it
 // watches only its own kind.
-func SetupLoadBalancerCertificateBundleController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI) error {
+func SetupLoadBalancerCertificateBundleController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*lb.LoadBalancerCertificateBundle]{
 		Client:    mgr.GetClient(),
 		Adapter:   &LoadBalancerCertificateBundleAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *lb.LoadBalancerCertificateBundle { return &lb.LoadBalancerCertificateBundle{} },
 		Finalizer: FinalizerLoadBalancerCertificateBundle,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lb.LoadBalancerCertificateBundle{}).
 		Named("loadbalancer-loadbalancercertificatebundle").

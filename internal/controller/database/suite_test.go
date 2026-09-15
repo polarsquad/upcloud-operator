@@ -36,6 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 	// +kubebuilder:scaffold:imports
 )
@@ -95,9 +96,9 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(SetupManagedDatabaseController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupManagedDatabaseUserController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupManagedDatabaseLogicalDatabaseController(mgr, fakeAPI)).To(Succeed())
+	Expect(SetupManagedDatabaseController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupManagedDatabaseUserController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupManagedDatabaseLogicalDatabaseController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

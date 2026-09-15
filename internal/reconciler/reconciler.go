@@ -42,6 +42,14 @@ type Observation struct {
 	Message  string
 }
 
+// Options are the manager-level tuning knobs shared by every controller.
+// Zero values fall back to the documented defaults in Reconciler.defaults.
+type Options struct {
+	// SteadyRequeue is the drift-detection interval for Ready objects
+	// (default 5m). Tune with the --steady-requeue manager flag.
+	SteadyRequeue time.Duration
+}
+
 // Adapter maps one kind onto the UpCloud API.
 type Adapter[T Object] interface {
 	Observe(ctx context.Context, obj T) (Observation, error)
@@ -71,6 +79,14 @@ func (r *Reconciler[T]) defaults() {
 	}
 	if r.SteadyRequeue == 0 {
 		r.SteadyRequeue = 5 * time.Minute
+	}
+}
+
+// ApplyOptions sets the manager-level tuning knobs on the reconciler.
+// Zero-valued options are ignored so the defaults stay in one place.
+func (r *Reconciler[T]) ApplyOptions(o Options) {
+	if o.SteadyRequeue > 0 {
+		r.SteadyRequeue = o.SteadyRequeue
 	}
 }
 

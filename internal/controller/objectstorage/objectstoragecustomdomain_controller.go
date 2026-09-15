@@ -36,7 +36,7 @@ const FinalizerObjectStorageCustomDomain = "objectstorage.upcloud.polarsquad.com
 // SetupObjectStorageCustomDomainController registers the
 // ObjectStorageCustomDomain reconciler. Custom domains are re-queued when the
 // ManagedObjectStorage they reference changes.
-func SetupObjectStorageCustomDomainController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupObjectStorageCustomDomainController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ObjectStorageCustomDomain]{
 		Client:  mgr.GetClient(),
 		Adapter: &ObjectStorageCustomDomainAdapter{API: api, Client: mgr.GetClient()},
@@ -45,6 +45,7 @@ func SetupObjectStorageCustomDomainController(mgr ctrl.Manager, api upcloudapi.O
 		},
 		Finalizer: FinalizerObjectStorageCustomDomain,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ObjectStorageCustomDomain{}).
 		Watches(&objectstoragev1alpha1.ManagedObjectStorage{}, handler.EnqueueRequestsFromMapFunc(

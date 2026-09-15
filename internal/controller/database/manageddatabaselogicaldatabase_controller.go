@@ -36,7 +36,7 @@ const FinalizerManagedDatabaseLogicalDatabase = "database.upcloud.polarsquad.com
 // SetupManagedDatabaseLogicalDatabaseController registers the
 // ManagedDatabaseLogicalDatabase reconciler. Logical databases are re-queued
 // when the ManagedDatabase they reference changes.
-func SetupManagedDatabaseLogicalDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI) error {
+func SetupManagedDatabaseLogicalDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*databasev1alpha1.ManagedDatabaseLogicalDatabase]{
 		Client:  mgr.GetClient(),
 		Adapter: &LogicalDatabaseAdapter{API: api, Client: mgr.GetClient()},
@@ -45,6 +45,7 @@ func SetupManagedDatabaseLogicalDatabaseController(mgr ctrl.Manager, api upcloud
 		},
 		Finalizer: FinalizerManagedDatabaseLogicalDatabase,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1alpha1.ManagedDatabaseLogicalDatabase{}).
 		Watches(&databasev1alpha1.ManagedDatabase{}, handler.EnqueueRequestsFromMapFunc(

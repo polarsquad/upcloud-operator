@@ -37,6 +37,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 	// +kubebuilder:scaffold:imports
 )
@@ -99,11 +100,11 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(SetupNetworkController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupRouterController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupGatewayController(mgr, gwAPI)).To(Succeed())
-	Expect(SetupGatewayConnectionController(mgr, gwAPI)).To(Succeed())
-	Expect(SetupGatewayTunnelController(mgr, gwAPI)).To(Succeed())
+	Expect(SetupNetworkController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupRouterController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupGatewayController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupGatewayConnectionController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupGatewayTunnelController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

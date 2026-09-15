@@ -33,13 +33,14 @@ const FinalizerLoadBalancerBackendMember = "loadbalancer.upcloud.polarsquad.com/
 // +kubebuilder:rbac:groups=loadbalancer.upcloud.polarsquad.com,resources=loadbalancerbackendmembers/finalizers,verbs=update
 
 // SetupLoadBalancerBackendMemberController registers the LoadBalancerBackendMember reconciler.
-func SetupLoadBalancerBackendMemberController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI) error {
+func SetupLoadBalancerBackendMemberController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*lb.LoadBalancerBackendMember]{
 		Client:    mgr.GetClient(),
 		Adapter:   &LoadBalancerBackendMemberAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *lb.LoadBalancerBackendMember { return &lb.LoadBalancerBackendMember{} },
 		Finalizer: FinalizerLoadBalancerBackendMember,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lb.LoadBalancerBackendMember{}).
 		Watches(&lb.LoadBalancerBackend{}, handler.EnqueueRequestsFromMapFunc(

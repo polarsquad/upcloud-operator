@@ -35,7 +35,7 @@ const FinalizerObjectStorageAccessKey = "objectstorage.upcloud.polarsquad.com/ob
 // SetupObjectStorageAccessKeyController registers the ObjectStorageAccessKey
 // reconciler. Keys are re-queued when the ObjectStorageUser they reference
 // changes.
-func SetupObjectStorageAccessKeyController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupObjectStorageAccessKeyController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ObjectStorageAccessKey]{
 		Client:  mgr.GetClient(),
 		Adapter: &ObjectStorageAccessKeyAdapter{API: api, Client: mgr.GetClient()},
@@ -44,6 +44,7 @@ func SetupObjectStorageAccessKeyController(mgr ctrl.Manager, api upcloudapi.Obje
 		},
 		Finalizer: FinalizerObjectStorageAccessKey,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ObjectStorageAccessKey{}).
 		Watches(&objectstoragev1alpha1.ObjectStorageUser{}, handler.EnqueueRequestsFromMapFunc(

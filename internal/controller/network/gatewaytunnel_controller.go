@@ -34,13 +34,14 @@ const FinalizerGatewayTunnel = "network.upcloud.polarsquad.com/gatewaytunnel"
 
 // SetupGatewayTunnelController registers the GatewayTunnel reconciler. Tunnels
 // are re-queued when the parent GatewayConnection changes.
-func SetupGatewayTunnelController(mgr ctrl.Manager, api upcloudapi.GatewayAPI) error {
+func SetupGatewayTunnelController(mgr ctrl.Manager, api upcloudapi.GatewayAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*networkv1alpha1.GatewayTunnel]{
 		Client:    mgr.GetClient(),
 		Adapter:   &GatewayTunnelAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *networkv1alpha1.GatewayTunnel { return &networkv1alpha1.GatewayTunnel{} },
 		Finalizer: FinalizerGatewayTunnel,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkv1alpha1.GatewayTunnel{}).
 		Watches(&networkv1alpha1.GatewayConnection{}, handler.EnqueueRequestsFromMapFunc(

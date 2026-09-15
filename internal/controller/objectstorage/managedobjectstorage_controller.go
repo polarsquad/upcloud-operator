@@ -33,7 +33,7 @@ const FinalizerManagedObjectStorage = "objectstorage.upcloud.polarsquad.com/mana
 
 // SetupManagedObjectStorageController registers the ManagedObjectStorage
 // reconciler.
-func SetupManagedObjectStorageController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupManagedObjectStorageController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ManagedObjectStorage]{
 		Client:  mgr.GetClient(),
 		Adapter: &ManagedObjectStorageAdapter{API: api, Client: mgr.GetClient()},
@@ -42,6 +42,7 @@ func SetupManagedObjectStorageController(mgr ctrl.Manager, api upcloudapi.Object
 		},
 		Finalizer: FinalizerManagedObjectStorage,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ManagedObjectStorage{}).
 		Named("objectstorage-managedobjectstorage").

@@ -34,13 +34,14 @@ const FinalizerNetwork = "network.upcloud.polarsquad.com/network"
 
 // SetupNetworkController registers the Network reconciler. Networks are
 // re-queued when the Router they reference changes.
-func SetupNetworkController(mgr ctrl.Manager, api upcloudapi.NetworkAPI) error {
+func SetupNetworkController(mgr ctrl.Manager, api upcloudapi.NetworkAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*networkv1alpha1.Network]{
 		Client:    mgr.GetClient(),
 		Adapter:   &NetworkAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *networkv1alpha1.Network { return &networkv1alpha1.Network{} },
 		Finalizer: FinalizerNetwork,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkv1alpha1.Network{}).
 		Watches(&networkv1alpha1.Router{}, handler.EnqueueRequestsFromMapFunc(

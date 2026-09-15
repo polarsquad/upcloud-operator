@@ -32,13 +32,14 @@ const FinalizerLoadBalancer = "loadbalancer.upcloud.polarsquad.com/loadbalancer"
 // +kubebuilder:rbac:groups=loadbalancer.upcloud.polarsquad.com,resources=loadbalancers/finalizers,verbs=update
 
 // SetupLoadBalancerController registers the LoadBalancer reconciler.
-func SetupLoadBalancerController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI) error {
+func SetupLoadBalancerController(mgr ctrl.Manager, api upcloudapi.LoadBalancerAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*lb.LoadBalancer]{
 		Client:    mgr.GetClient(),
 		Adapter:   &LoadBalancerAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *lb.LoadBalancer { return &lb.LoadBalancer{} },
 		Finalizer: FinalizerLoadBalancer,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&lb.LoadBalancer{}).
 		Named("loadbalancer-loadbalancer").

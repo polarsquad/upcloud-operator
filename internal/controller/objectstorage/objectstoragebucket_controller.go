@@ -35,13 +35,14 @@ const FinalizerObjectStorageBucket = "objectstorage.upcloud.polarsquad.com/objec
 // SetupObjectStorageBucketController registers the ObjectStorageBucket
 // reconciler. Buckets are re-queued when the ManagedObjectStorage they
 // reference changes.
-func SetupObjectStorageBucketController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupObjectStorageBucketController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ObjectStorageBucket]{
 		Client:    mgr.GetClient(),
 		Adapter:   &ObjectStorageBucketAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *objectstoragev1alpha1.ObjectStorageBucket { return &objectstoragev1alpha1.ObjectStorageBucket{} },
 		Finalizer: FinalizerObjectStorageBucket,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ObjectStorageBucket{}).
 		Watches(&objectstoragev1alpha1.ManagedObjectStorage{}, handler.EnqueueRequestsFromMapFunc(

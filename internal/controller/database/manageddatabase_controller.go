@@ -34,13 +34,14 @@ const FinalizerManagedDatabase = "database.upcloud.polarsquad.com/manageddatabas
 
 // SetupManagedDatabaseController registers the ManagedDatabase reconciler.
 // The service is polled for state changes; there are no watch sources.
-func SetupManagedDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI) error {
+func SetupManagedDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*databasev1alpha1.ManagedDatabase]{
 		Client:    mgr.GetClient(),
 		Adapter:   &ManagedDatabaseAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *databasev1alpha1.ManagedDatabase { return &databasev1alpha1.ManagedDatabase{} },
 		Finalizer: FinalizerManagedDatabase,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1alpha1.ManagedDatabase{}).
 		Named("database-manageddatabase").

@@ -36,6 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 	// +kubebuilder:scaffold:imports
 )
@@ -95,12 +96,12 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(SetupManagedObjectStorageController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupObjectStoragePolicyController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupObjectStorageUserController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupObjectStorageAccessKeyController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupObjectStorageBucketController(mgr, fakeAPI)).To(Succeed())
-	Expect(SetupObjectStorageCustomDomainController(mgr, fakeAPI)).To(Succeed())
+	Expect(SetupManagedObjectStorageController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupObjectStoragePolicyController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupObjectStorageUserController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupObjectStorageAccessKeyController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupObjectStorageBucketController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupObjectStorageCustomDomainController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

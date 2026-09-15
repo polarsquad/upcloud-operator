@@ -35,13 +35,14 @@ const FinalizerObjectStorageUser = "objectstorage.upcloud.polarsquad.com/objects
 // SetupObjectStorageUserController registers the ObjectStorageUser
 // reconciler. Users are re-queued when the ManagedObjectStorage they
 // reference or the ObjectStoragePolicy CRs they use change.
-func SetupObjectStorageUserController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI) error {
+func SetupObjectStorageUserController(mgr ctrl.Manager, api upcloudapi.ObjectStorageAPI, opts reconciler.Options) error {
 	r := &reconciler.Reconciler[*objectstoragev1alpha1.ObjectStorageUser]{
 		Client:    mgr.GetClient(),
 		Adapter:   &ObjectStorageUserAdapter{API: api, Client: mgr.GetClient()},
 		New:       func() *objectstoragev1alpha1.ObjectStorageUser { return &objectstoragev1alpha1.ObjectStorageUser{} },
 		Finalizer: FinalizerObjectStorageUser,
 	}
+	r.ApplyOptions(opts)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&objectstoragev1alpha1.ObjectStorageUser{}).
 		Watches(&objectstoragev1alpha1.ManagedObjectStorage{}, handler.EnqueueRequestsFromMapFunc(

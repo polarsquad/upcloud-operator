@@ -157,6 +157,26 @@ func TestReadyAndInSyncIsAvailable(t *testing.T) {
 	g.Expect(cond.Reason).To(Equal(reconciler.ReasonAvailable))
 }
 
+func TestSteadyRequeueOptionIsApplied(t *testing.T) {
+	g := NewWithT(t)
+	fa := &fakeAdapter{obs: reconciler.Observation{Exists: true, UpToDate: true, Ready: true}}
+	_, r := harness(t, network(common.DeletionPolicyDelete, finalizer), fa)
+	r.ApplyOptions(reconciler.Options{SteadyRequeue: 30 * time.Second})
+	res, err := reconcile(r)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res.RequeueAfter).To(Equal(30 * time.Second))
+}
+
+func TestSteadyRequeueZeroOptionKeepsDefault(t *testing.T) {
+	g := NewWithT(t)
+	fa := &fakeAdapter{obs: reconciler.Observation{Exists: true, UpToDate: true, Ready: true}}
+	_, r := harness(t, network(common.DeletionPolicyDelete, finalizer), fa)
+	r.ApplyOptions(reconciler.Options{})
+	res, err := reconcile(r)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(res.RequeueAfter).To(Equal(5 * time.Minute))
+}
+
 func TestDependencyNotReadyRequeuesQuietly(t *testing.T) {
 	g := NewWithT(t)
 	fa := &fakeAdapter{obsErr: errors.Join(reconciler.ErrDependencyNotReady, errors.New(`Router "r1" not found`))}
