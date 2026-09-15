@@ -88,13 +88,17 @@ func init() {
 }
 
 // GetConditions implements reconciler.Object.
-func (d *ManagedDatabaseLogicalDatabase) GetConditions() []metav1.Condition { return d.Status.Conditions }
+func (d *ManagedDatabaseLogicalDatabase) GetConditions() []metav1.Condition {
+	return d.Status.Conditions
+}
 
 // SetConditions implements reconciler.Object.
 func (d *ManagedDatabaseLogicalDatabase) SetConditions(c []metav1.Condition) { d.Status.Conditions = c }
 
 // GetDeletionPolicy implements reconciler.Object.
-func (d *ManagedDatabaseLogicalDatabase) GetDeletionPolicy() common.DeletionPolicy { return d.Spec.DeletionPolicy }
+func (d *ManagedDatabaseLogicalDatabase) GetDeletionPolicy() common.DeletionPolicy {
+	return d.Spec.DeletionPolicy
+}
 
 // GetExternalID implements reconciler.Object.
 func (d *ManagedDatabaseLogicalDatabase) GetExternalID() string { return d.Status.Name }

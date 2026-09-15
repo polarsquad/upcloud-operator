@@ -38,16 +38,20 @@ const FinalizerManagedDatabaseLogicalDatabase = "database.upcloud.polarsquad.com
 // when the ManagedDatabase they reference changes.
 func SetupManagedDatabaseLogicalDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI) error {
 	r := &reconciler.Reconciler[*databasev1alpha1.ManagedDatabaseLogicalDatabase]{
-		Client:    mgr.GetClient(),
-		Adapter:   &LogicalDatabaseAdapter{API: api, Client: mgr.GetClient()},
-		New:       func() *databasev1alpha1.ManagedDatabaseLogicalDatabase { return &databasev1alpha1.ManagedDatabaseLogicalDatabase{} },
+		Client:  mgr.GetClient(),
+		Adapter: &LogicalDatabaseAdapter{API: api, Client: mgr.GetClient()},
+		New: func() *databasev1alpha1.ManagedDatabaseLogicalDatabase {
+			return &databasev1alpha1.ManagedDatabaseLogicalDatabase{}
+		},
 		Finalizer: FinalizerManagedDatabaseLogicalDatabase,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1alpha1.ManagedDatabaseLogicalDatabase{}).
 		Watches(&databasev1alpha1.ManagedDatabase{}, handler.EnqueueRequestsFromMapFunc(
 			reconciler.DependentsOf(mgr.GetClient(),
-				func() *databasev1alpha1.ManagedDatabaseLogicalDatabaseList { return &databasev1alpha1.ManagedDatabaseLogicalDatabaseList{} },
+				func() *databasev1alpha1.ManagedDatabaseLogicalDatabaseList {
+					return &databasev1alpha1.ManagedDatabaseLogicalDatabaseList{}
+				},
 				func(l *databasev1alpha1.ManagedDatabaseLogicalDatabaseList) []*databasev1alpha1.ManagedDatabaseLogicalDatabase {
 					out := make([]*databasev1alpha1.ManagedDatabaseLogicalDatabase, 0, len(l.Items))
 					for i := range l.Items {
