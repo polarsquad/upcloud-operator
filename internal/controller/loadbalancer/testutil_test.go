@@ -31,6 +31,7 @@ const (
 	readyReason   = "Available"
 	testReadyType = "Ready"
 	publicType    = "public"
+	bundleType    = "manual"
 )
 
 // newLBClient returns a fake client with the corev1, network and loadbalancer
@@ -55,10 +56,38 @@ func commonLocalRef(name string) common.LocalObjectReference {
 
 const (
 	backendName = "be"
+	feName      = "fe"
+	ruleName    = "rule"
 	bundleName  = "bundle"
 	bundleUUID  = "cb-0001"
 	certPEM     = "CERT"
 )
+
+// readyFrontend creates a Ready LoadBalancerFrontend CR named feName and the
+// matching fake frontend (under the ready parent), for rule / frontend TLS
+// config tests.
+func readyFrontend(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
+	readyBackend(g, c, api)
+	fe := &lb.LoadBalancerFrontend{
+		ObjectMeta: metav1.ObjectMeta{Name: feName, Namespace: testNS, UID: types.UID(feName), Generation: 1},
+		Spec: lb.LoadBalancerFrontendSpec{
+			LoadBalancerRef:   commonLocalRef(parentName),
+			Name:              feName,
+			Mode:              "http",
+			Port:              80,
+			DefaultBackendRef: commonLocalRef(backendName),
+			Networks:          []lb.FrontendNetwork{{Name: publicType}},
+		},
+		Status: lb.LoadBalancerFrontendStatus{
+			ServiceUUID: parentUUID,
+			Name:        feName,
+			Conditions:  []metav1.Condition{{Type: testReadyType, Status: metav1.ConditionTrue, Reason: readyReason, Message: "ok", ObservedGeneration: 1}},
+		},
+	}
+	g.Expect(c.Create(gctx(), fe)).To(Succeed())
+	api.LoadBalancers[parentUUID].Frontends = append(api.LoadBalancers[parentUUID].Frontends,
+		upcloud.LoadBalancerFrontend{Name: feName, Mode: upcloud.LoadBalancerModeHTTP, Port: 80, DefaultBackend: backendName})
+}
 
 // readyBackend creates a Ready LoadBalancerBackend CR named backendName and the
 // matching fake backend (under the ready parent), for member / TLS config
@@ -84,7 +113,7 @@ func readyBackend(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
 func readyBundle(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
 	b := &lb.LoadBalancerCertificateBundle{
 		ObjectMeta: metav1.ObjectMeta{Name: bundleName, Namespace: testNS, UID: types.UID(bundleName), Generation: 1},
-		Spec:       lb.LoadBalancerCertificateBundleSpec{Name: bundleName, Type: "manual"},
+		Spec:       lb.LoadBalancerCertificateBundleSpec{Name: bundleName, Type: bundleType},
 		Status: lb.LoadBalancerCertificateBundleStatus{
 			UUID:             bundleUUID,
 			OperationalState: "idle",
@@ -110,7 +139,7 @@ func readyService(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
 			Plan: testPlan,
 			Zone: testZone,
 			Networks: []lb.LoadBalancerNetworkAttachment{
-				{Name: "public", Type: publicType},
+				{Name: publicType, Type: publicType},
 			},
 		},
 		Status: lb.LoadBalancerStatus{
@@ -128,7 +157,7 @@ func readyService(g *GomegaWithT, c client.Client, api *fake.LoadBalancerAPI) {
 		OperationalState: upcloud.LoadBalancerOperationalStateRunning,
 		ConfiguredStatus: upcloud.LoadBalancerConfiguredStatusStarted,
 		Networks: []upcloud.LoadBalancerNetwork{
-			{Name: "public", Type: upcloud.LoadBalancerNetworkTypePublic, Family: upcloud.LoadBalancerAddressFamilyIPv4, DNSName: parentUUID + ".lb.upcloud.com"},
+			{Name: publicType, Type: upcloud.LoadBalancerNetworkTypePublic, Family: upcloud.LoadBalancerAddressFamilyIPv4, DNSName: parentUUID + ".lb.upcloud.com"},
 		},
 	}
 }

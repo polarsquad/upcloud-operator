@@ -48,6 +48,56 @@ rules:
   - patch
   - update
 - apiGroups:
+  - loadbalancer.upcloud.polarsquad.com
+  resources:
+  - loadbalancerbackendmembers
+  - loadbalancerbackends
+  - loadbalancerbackendtlsconfigs
+  - loadbalancercertificatebundles
+  - loadbalancerfrontendrules
+  - loadbalancerfrontends
+  - loadbalancerfrontendtlsconfigs
+  - loadbalancerresolvers
+  - loadbalancers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - loadbalancer.upcloud.polarsquad.com
+  resources:
+  - loadbalancerbackendmembers/finalizers
+  - loadbalancerbackends/finalizers
+  - loadbalancerbackendtlsconfigs/finalizers
+  - loadbalancercertificatebundles/finalizers
+  - loadbalancerfrontendrules/finalizers
+  - loadbalancerfrontends/finalizers
+  - loadbalancerfrontendtlsconfigs/finalizers
+  - loadbalancerresolvers/finalizers
+  - loadbalancers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - loadbalancer.upcloud.polarsquad.com
+  resources:
+  - loadbalancerbackendmembers/status
+  - loadbalancerbackends/status
+  - loadbalancerbackendtlsconfigs/status
+  - loadbalancercertificatebundles/status
+  - loadbalancerfrontendrules/status
+  - loadbalancerfrontends/status
+  - loadbalancerfrontendtlsconfigs/status
+  - loadbalancerresolvers/status
+  - loadbalancers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - network.upcloud.polarsquad.com
   resources:
   - gatewayconnections

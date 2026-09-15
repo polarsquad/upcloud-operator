@@ -38,9 +38,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
+	loadbalancerv1alpha1 "github.com/polarsquad/upcloud-operator/api/loadbalancer/v1alpha1"
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
 	databasecontroller "github.com/polarsquad/upcloud-operator/internal/controller/database"
+	loadbalancercontroller "github.com/polarsquad/upcloud-operator/internal/controller/loadbalancer"
 	networkcontroller "github.com/polarsquad/upcloud-operator/internal/controller/network"
 	objectstoragecontroller "github.com/polarsquad/upcloud-operator/internal/controller/objectstorage"
 	// +kubebuilder:scaffold:imports
@@ -57,6 +59,7 @@ func init() {
 	utilruntime.Must(networkv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(databasev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(objectstoragev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(loadbalancerv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -246,6 +249,42 @@ func main() {
 	}
 	if err := objectstoragecontroller.SetupObjectStorageCustomDomainController(mgr, upcloudSvc); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageCustomDomain")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancer")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerCertificateBundleController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerCertificateBundle")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerResolverController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerResolver")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerBackendController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackend")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerBackendMemberController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackendMember")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerBackendTLSConfigController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerBackendTLSConfig")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontend")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendRuleController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontendRule")
+		os.Exit(1)
+	}
+	if err := loadbalancercontroller.SetupLoadBalancerFrontendTLSConfigController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LoadBalancerFrontendTLSConfig")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

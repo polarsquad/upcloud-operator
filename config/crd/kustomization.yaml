@@ -13,6 +13,15 @@ resources:
 - bases/objectstorage.upcloud.polarsquad.com_objectstorageaccesskeys.yaml
 - bases/objectstorage.upcloud.polarsquad.com_objectstoragebuckets.yaml
 - bases/objectstorage.upcloud.polarsquad.com_objectstoragecustomdomains.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancers.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancercertificatebundles.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerresolvers.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerbackends.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerbackendmembers.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerbackendtlsconfigs.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerfrontends.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerfrontendrules.yaml
+- bases/loadbalancer.upcloud.polarsquad.com_loadbalancerfrontendtlsconfigs.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

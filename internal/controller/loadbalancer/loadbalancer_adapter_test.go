@@ -23,7 +23,7 @@ func newService(name string) *lb.LoadBalancer {
 			Plan: testPlan,
 			Zone: testZone,
 			Networks: []lb.LoadBalancerNetworkAttachment{
-				{Name: "public", Type: publicType},
+				{Name: publicType, Type: publicType},
 			},
 		},
 	}

@@ -195,11 +195,11 @@ func (a *LoadBalancerAdapter) Delete(ctx context.Context, s *lb.LoadBalancer) er
 	if err != nil {
 		return fmt.Errorf("get load balancer: %w", err)
 	}
-	switch {
-	case lbw.OperationalState == upcloud.LoadBalancerOperationalStateDeleteDNS ||
-		lbw.OperationalState == upcloud.LoadBalancerOperationalStateDeleteNetwork ||
-		lbw.OperationalState == upcloud.LoadBalancerOperationalStateDeleteServer ||
-		lbw.OperationalState == upcloud.LoadBalancerOperationalStateDeleteService:
+	switch lbw.OperationalState {
+	case upcloud.LoadBalancerOperationalStateDeleteDNS,
+		upcloud.LoadBalancerOperationalStateDeleteNetwork,
+		upcloud.LoadBalancerOperationalStateDeleteServer,
+		upcloud.LoadBalancerOperationalStateDeleteService:
 		return reconciler.ErrPending
 	default:
 	}

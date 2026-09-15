@@ -84,7 +84,7 @@ func TestBundleAdopt(t *testing.T) {
 
 	b := &lb.LoadBalancerCertificateBundle{
 		ObjectMeta: metav1.ObjectMeta{Name: "b2", Namespace: testNS},
-		Spec:       lb.LoadBalancerCertificateBundleSpec{Name: "b2", Type: "manual", CertificateSecretRef: &common.LocalObjectReference{Name: "tls"}},
+		Spec:       lb.LoadBalancerCertificateBundleSpec{Name: "b2", Type: bundleType, CertificateSecretRef: &common.LocalObjectReference{Name: "tls"}},
 	}
 	sec := tlsSecret("tls", "CERT", "KEY")
 	g.Expect(c.Create(ctx, sec)).To(Succeed())
