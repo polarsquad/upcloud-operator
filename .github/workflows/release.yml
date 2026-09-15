@@ -73,13 +73,19 @@ jobs:
             cosign sign --yes ${{ env.IMAGE }}:${{ github.ref_name }}
           fi
 
-      - name: Create the GitHub release
+      - name: Create or update the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          args=(--generate-notes)
-          # rc/alpha/beta tags become pre-releases; plain vX.Y.Z are final.
-          case "${{ github.ref_name }}" in
-            *rc*|*alpha*|*beta*) args+=(--prerelease) ;;
-          esac
-          gh release create "${{ github.ref_name }}" "${args[@]}" dist/install.yaml
+          # Re-pointing a tag re-triggers this workflow; in that case the
+          # release already exists, so attach/replace the asset instead.
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" dist/install.yaml --clobber
+          else
+            args=(--generate-notes)
+            # rc/alpha/beta tags become pre-releases; plain vX.Y.Z are final.
+            case "${{ github.ref_name }}" in
+              *rc*|*alpha*|*beta*) args+=(--prerelease) ;;
+            esac
+            gh release create "${{ github.ref_name }}" "${args[@]}" dist/install.yaml
+          fi
