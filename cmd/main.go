@@ -197,6 +197,18 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Router")
 		os.Exit(1)
 	}
+	if err := networkcontroller.SetupGatewayController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Gateway")
+		os.Exit(1)
+	}
+	if err := networkcontroller.SetupGatewayConnectionController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GatewayConnection")
+		os.Exit(1)
+	}
+	if err := networkcontroller.SetupGatewayTunnelController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GatewayTunnel")
+		os.Exit(1)
+	}
 	if err := databasecontroller.SetupManagedDatabaseController(mgr, upcloudSvc); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabase")
 		os.Exit(1)

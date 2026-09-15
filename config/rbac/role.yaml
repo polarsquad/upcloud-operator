@@ -52,6 +52,7 @@ rules:
   resources:
   - gatewayconnections
   - gateways
+  - gatewaytunnels
   - networks
   - routers
   verbs:
@@ -67,6 +68,7 @@ rules:
   resources:
   - gatewayconnections/finalizers
   - gateways/finalizers
+  - gatewaytunnels/finalizers
   - networks/finalizers
   - routers/finalizers
   verbs:
@@ -76,6 +78,7 @@ rules:
   resources:
   - gatewayconnections/status
   - gateways/status
+  - gatewaytunnels/status
   - networks/status
   - routers/status
   verbs:

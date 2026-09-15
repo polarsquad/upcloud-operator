@@ -1,0 +1,15 @@
+apiVersion: network.upcloud.polarsquad.com/v1alpha1
+kind: GatewayConnection
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gatewayconnection-sample
+spec:
+  gatewayRef:
+    name: gateway-sample
+  type: ipsec
+  localRoutes:
+    - name: to-office
+      staticNetwork: 10.9.0.0/16
+      type: static

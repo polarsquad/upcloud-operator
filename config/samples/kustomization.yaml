@@ -2,6 +2,10 @@
 resources:
 - network_v1alpha1_network.yaml
 - network_v1alpha1_router.yaml
+- network_v1alpha1_gateway.yaml
+- network_v1alpha1_gatewayconnection.yaml
+- network_v1alpha1_gatewaytunnel.yaml
+- network_v1alpha1_vpn-psk-secret.yaml
 - database_v1alpha1_manageddatabase.yaml
 - database_v1alpha1_manageddatabaseuser.yaml
 - database_v1alpha1_manageddatabaselogicaldatabase.yaml

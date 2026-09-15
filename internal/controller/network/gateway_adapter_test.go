@@ -19,10 +19,10 @@ import (
 
 func newGateway() *networkv1alpha1.Gateway {
 	return &networkv1alpha1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: "ns", UID: "gw-uid", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: testGWName, Namespace: "ns", UID: testGWUID, Generation: 1},
 		Spec: networkv1alpha1.GatewaySpec{
 			Zone:       testZone,
-			Plan:       "small",
+			Plan:       testSmallPlan,
 			Features:   []string{testNat},
 			RouterUUID: "rtr-1",
 			// Mirrors the +kubebuilder:default (not applied by the fake client).
@@ -76,7 +76,7 @@ func TestGatewayPlanDriftUpdates(t *testing.T) {
 	created.Plan = "medium" // drift in UpCloud
 	g.Expect(obsUpToDate(a, ctx, gw)).To(BeFalse())
 	g.Expect(a.Update(ctx, gw)).To(Succeed())
-	g.Expect(api.Gateways[gw.Status.UUID].Plan).To(Equal("small"))
+	g.Expect(api.Gateways[gw.Status.UUID].Plan).To(Equal(testSmallPlan))
 }
 
 func TestGatewayConfiguredStatusFlip(t *testing.T) {
@@ -124,7 +124,7 @@ func TestGatewayAdoptedByLabel(t *testing.T) {
 
 	// A gateway created by someone else, tagged with our UID label.
 	created, err := api.CreateGateway(ctx, &request.CreateGatewayRequest{
-		Name: "gw1", Zone: testZone, Plan: "small", Features: []upcloud.GatewayFeature{testNat},
+		Name: testGWName, Zone: testZone, Plan: testSmallPlan, Features: []upcloud.GatewayFeature{testNat},
 		Labels: upcloudapi.DesiredLabels(gw, nil),
 	})
 	g.Expect(err).NotTo(HaveOccurred())

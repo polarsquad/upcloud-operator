@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +51,7 @@ var (
 	cfg       *rest.Config
 	k8sClient client.Client
 	fakeAPI   = fake.NewNetworkAPI()
+	gwAPI     = fake.NewGatewayAPI()
 	mgr       ctrl.Manager
 )
 
@@ -69,6 +71,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
+	err = corev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -97,6 +101,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(SetupNetworkController(mgr, fakeAPI)).To(Succeed())
 	Expect(SetupRouterController(mgr, fakeAPI)).To(Succeed())
+	Expect(SetupGatewayController(mgr, gwAPI)).To(Succeed())
+	Expect(SetupGatewayConnectionController(mgr, gwAPI)).To(Succeed())
+	Expect(SetupGatewayTunnelController(mgr, gwAPI)).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

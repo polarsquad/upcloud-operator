@@ -14,10 +14,10 @@ import (
 
 var _ = Describe("Network group end to end against the fake API", func() {
 	It("creates a router, then a network attached to it, then deletes both", func(ctx SpecContext) {
-		router := &networkv1alpha1.Router{ObjectMeta: metav1.ObjectMeta{Name: "r1", Namespace: "default"}}
+		router := &networkv1alpha1.Router{ObjectMeta: metav1.ObjectMeta{Name: "r1", Namespace: testDefaultNS}}
 		Expect(k8sClient.Create(ctx, router)).To(Succeed())
 		net := &networkv1alpha1.Network{
-			ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "default"},
+			ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: testDefaultNS},
 			Spec: networkv1alpha1.NetworkSpec{Zone: testZone,
 				IPNetworks: []networkv1alpha1.IPNetwork{{Address: "10.1.0.0/24"}},
 				RouterRef:  &common.LocalObjectReference{Name: "r1"}},
@@ -31,7 +31,15 @@ var _ = Describe("Network group end to end against the fake API", func() {
 			g.Expect(n.Status.RouterUUID).To(HavePrefix("rtr-"))
 		}, "20s", "250ms").Should(Succeed())
 
+		// Delete the network first and wait for it to leave the fake before
+		// deleting the router; the router's DeleteRouter 409s (and requeues)
+		// while a network is still attached, so an unordered delete is flaky.
 		Expect(k8sClient.Delete(ctx, net)).To(Succeed())
+		Eventually(func() bool {
+			return client.IgnoreNotFound(
+				k8sClient.Get(ctx, client.ObjectKeyFromObject(net), &networkv1alpha1.Network{}),
+			) == nil
+		}, "20s", "250ms").Should(BeTrue())
 		Expect(k8sClient.Delete(ctx, router)).To(Succeed())
 		Eventually(func() int { return len(fakeAPI.Networks) + len(fakeAPI.Routers) }, "20s", "250ms").Should(BeZero())
 	})

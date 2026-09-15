@@ -6,6 +6,7 @@ import (
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +25,7 @@ func newFakeClient(t *testing.T) client.Client {
 	g := NewWithT(t)
 	s := runtime.NewScheme()
 	g.Expect(networkv1alpha1.AddToScheme(s)).To(Succeed())
+	g.Expect(corev1.AddToScheme(s)).To(Succeed())
 	return fakeclient.NewClientBuilder().WithScheme(s).Build()
 }
 
@@ -43,7 +45,7 @@ func readyRouterCR(name, uuid string) *networkv1alpha1.Router {
 		Status: networkv1alpha1.RouterStatus{
 			UUID: uuid,
 			Conditions: []metav1.Condition{{
-				Type: "Ready", Status: metav1.ConditionTrue, Reason: "Available",
+				Type: testReadyType, Status: metav1.ConditionTrue, Reason: testReadyMsg,
 				Message: "ok", ObservedGeneration: 1,
 			}},
 		},

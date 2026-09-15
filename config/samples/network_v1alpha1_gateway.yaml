@@ -1,0 +1,18 @@
+apiVersion: network.upcloud.polarsquad.com/v1alpha1
+kind: Gateway
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gateway-sample
+spec:
+  zone: fi-hel1
+  plan: small
+  features:
+    - nat
+    - vpn
+  routerRef:
+    name: router-sample
+  configuredStatus: started
+  addresses:
+    - name: vpn

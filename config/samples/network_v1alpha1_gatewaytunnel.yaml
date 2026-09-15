@@ -1,0 +1,18 @@
+apiVersion: network.upcloud.polarsquad.com/v1alpha1
+kind: GatewayTunnel
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: gatewaytunnel-sample
+spec:
+  connectionRef:
+    name: gatewayconnection-sample
+  localAddressName: vpn
+  remoteAddress: 203.0.113.10
+  ipsec:
+    authentication:
+      type: psk
+      pskSecretRef:
+        name: vpn-psk-sample
+        key: psk

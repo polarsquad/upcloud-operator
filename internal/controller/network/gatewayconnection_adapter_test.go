@@ -22,7 +22,7 @@ const testNS = "ns"
 func putFakeGateway(t *testing.T, api *fake.GatewayAPI, uuid string) {
 	t.Helper()
 	g := &upcloud.Gateway{
-		UUID: uuid, Name: "gw1", Zone: testZone,
+		UUID: uuid, Name: testGWName, Zone: testZone,
 		OperationalState: upcloud.GatewayOperationalStateRunning,
 	}
 	api.Gateways[uuid] = g
@@ -30,11 +30,11 @@ func putFakeGateway(t *testing.T, api *fake.GatewayAPI, uuid string) {
 
 func readyGatewayCR(name, uuid string) *networkv1alpha1.Gateway {
 	return &networkv1alpha1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS, UID: "gw-uid", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNS, UID: testGWUID, Generation: 1},
 		Status: networkv1alpha1.GatewayStatus{
 			UUID: uuid,
 			Conditions: []metav1.Condition{{
-				Type: "Ready", Status: metav1.ConditionTrue, Reason: "Available",
+				Type: testReadyType, Status: metav1.ConditionTrue, Reason: testReadyMsg,
 				Message: "ok", ObservedGeneration: 1,
 			}},
 		},
@@ -43,11 +43,11 @@ func readyGatewayCR(name, uuid string) *networkv1alpha1.Gateway {
 
 func newGatewayConnection() *networkv1alpha1.GatewayConnection {
 	return &networkv1alpha1.GatewayConnection{
-		ObjectMeta: metav1.ObjectMeta{Name: "conn1", Namespace: testNS, UID: "conn-uid", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: testConnName, Namespace: testNS, UID: "conn-uid", Generation: 1},
 		Spec: networkv1alpha1.GatewayConnectionSpec{
-			GatewayRef: common.LocalObjectReference{Name: "gw1"},
+			GatewayRef: common.LocalObjectReference{Name: testGWName},
 			LocalRoutes: []networkv1alpha1.GatewayRoute{
-				{Name: "r1", StaticNetwork: "10.0.0.0/24", Type: "static"},
+				{Name: "r1", StaticNetwork: testCIDR, Type: testStaticRoute},
 			},
 		},
 	}
@@ -62,14 +62,14 @@ func TestGatewayConnectionCreateWaitsForGateway(t *testing.T) {
 
 	// Gateway exists in the cluster but has no UUID yet: create must wait.
 	g.Expect(c.Create(ctx, &networkv1alpha1.Gateway{
-		ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: testNS, UID: "gw-uid", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: testGWName, Namespace: testNS, UID: testGWUID, Generation: 1},
 	})).To(Succeed())
 	gw := newGatewayConnection()
 	g.Expect(a.Create(ctx, gw)).To(MatchError(reconciler.ErrDependencyNotReady))
 
 	// The gateway gets a UUID and is seeded in the fake API: create succeeds.
 	gwCR := &networkv1alpha1.Gateway{}
-	g.Expect(c.Get(ctx, client.ObjectKey{Namespace: testNS, Name: "gw1"}, gwCR)).To(Succeed())
+	g.Expect(c.Get(ctx, client.ObjectKey{Namespace: testNS, Name: testGWName}, gwCR)).To(Succeed())
 	gwCR.Status = readyGatewayCR("gw1", "gw-1").Status
 	g.Expect(c.Update(ctx, gwCR)).To(Succeed())
 	putFakeGateway(t, api, "gw-1")
@@ -90,7 +90,7 @@ func TestGatewayConnectionAdoptByName(t *testing.T) {
 	// Pre-existing connection in the fake, named to match.
 	_, err := api.CreateGatewayConnection(ctx, &request.CreateGatewayConnectionRequest{
 		ServiceUUID: "gw-1",
-		Connection:  request.GatewayConnection{Name: "conn1", Type: upcloud.GatewayConnectionTypeIPSec},
+		Connection:  request.GatewayConnection{Name: testConnName, Type: upcloud.GatewayConnectionTypeIPSec},
 	})
 	g.Expect(err).NotTo(HaveOccurred())
 
@@ -117,7 +117,7 @@ func TestGatewayConnectionRouteDriftModifies(t *testing.T) {
 
 	// Desired gains a route: drift, then update sends both route sets.
 	gw.Spec.LocalRoutes = append(gw.Spec.LocalRoutes, networkv1alpha1.GatewayRoute{
-		Name: "r2", StaticNetwork: "10.0.1.0/24", Type: "static",
+		Name: "r2", StaticNetwork: "10.0.1.0/24", Type: testStaticRoute,
 	})
 	g.Expect(obsConnUpToDate(a, ctx, gw)).To(BeFalse())
 	g.Expect(a.Update(ctx, gw)).To(Succeed())

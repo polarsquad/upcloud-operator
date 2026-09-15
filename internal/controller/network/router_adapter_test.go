@@ -92,7 +92,7 @@ func TestRouterObserveIgnoresServiceRoutes(t *testing.T) {
 	ctx := context.Background()
 	g.Expect(a.Create(ctx, r)).To(Succeed())
 	api.Routers[r.Status.UUID].StaticRoutes = append(api.Routers[r.Status.UUID].StaticRoutes,
-		upcloud.StaticRoute{Route: "10.0.0.0/24", Nexthop: "10.0.0.254", Type: upcloud.RouterStaticRouteTypeService})
+		upcloud.StaticRoute{Route: testCIDR, Nexthop: "10.0.0.254", Type: upcloud.RouterStaticRouteTypeService})
 	obs, err := a.Observe(ctx, r)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(obs.UpToDate).To(BeTrue())
