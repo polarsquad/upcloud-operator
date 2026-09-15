@@ -1,0 +1,11 @@
+apiVersion: objectstorage.upcloud.polarsquad.com/v1alpha1
+kind: ObjectStorageBucket
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: objectstoragebucket-sample
+spec:
+  serviceRef:
+    name: managedobjectstorage-sample
+  name: sample-bucket

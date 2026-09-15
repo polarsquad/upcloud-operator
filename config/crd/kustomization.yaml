@@ -7,6 +7,12 @@ resources:
 - bases/database.upcloud.polarsquad.com_manageddatabases.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabaseusers.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabaselogicaldatabases.yaml
+- bases/objectstorage.upcloud.polarsquad.com_managedobjectstorages.yaml
+- bases/objectstorage.upcloud.polarsquad.com_objectstoragepolicies.yaml
+- bases/objectstorage.upcloud.polarsquad.com_objectstorageusers.yaml
+- bases/objectstorage.upcloud.polarsquad.com_objectstorageaccesskeys.yaml
+- bases/objectstorage.upcloud.polarsquad.com_objectstoragebuckets.yaml
+- bases/objectstorage.upcloud.polarsquad.com_objectstoragecustomdomains.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

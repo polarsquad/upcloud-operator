@@ -26,3 +26,13 @@ func IsNotFound(err error) bool { return StatusOf(err) == http.StatusNotFound }
 
 // IsConflict reports a 409 from the UpCloud API (resource already exists).
 func IsConflict(err error) bool { return StatusOf(err) == http.StatusConflict }
+
+// TitleOf extracts the human-readable title from an UpCloud API error,
+// returning the bare error string when the problem carries no title.
+func TitleOf(err error) string {
+	var p *upcloud.Problem
+	if errors.As(err, &p) && p.Title != "" {
+		return p.Title
+	}
+	return err.Error()
+}

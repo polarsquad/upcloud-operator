@@ -9,4 +9,10 @@ resources:
 - database_v1alpha1_manageddatabase.yaml
 - database_v1alpha1_manageddatabaseuser.yaml
 - database_v1alpha1_manageddatabaselogicaldatabase.yaml
+- objectstorage_v1alpha1_managedobjectstorage.yaml
+- objectstorage_v1alpha1_objectstoragepolicy.yaml
+- objectstorage_v1alpha1_objectstorageuser.yaml
+- objectstorage_v1alpha1_objectstorageaccesskey.yaml
+- objectstorage_v1alpha1_objectstoragebucket.yaml
+- objectstorage_v1alpha1_objectstoragecustomdomain.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

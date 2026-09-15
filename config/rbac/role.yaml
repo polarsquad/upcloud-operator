@@ -85,3 +85,44 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - objectstorage.upcloud.polarsquad.com
+  resources:
+  - managedobjectstorages
+  - objectstorageaccesskeys
+  - objectstoragebuckets
+  - objectstoragecustomdomains
+  - objectstoragepolicies
+  - objectstorageusers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - objectstorage.upcloud.polarsquad.com
+  resources:
+  - managedobjectstorages/finalizers
+  - objectstorageaccesskeys/finalizers
+  - objectstoragebuckets/finalizers
+  - objectstoragecustomdomains/finalizers
+  - objectstoragepolicies/finalizers
+  - objectstorageusers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - objectstorage.upcloud.polarsquad.com
+  resources:
+  - managedobjectstorages/status
+  - objectstorageaccesskeys/status
+  - objectstoragebuckets/status
+  - objectstoragecustomdomains/status
+  - objectstoragepolicies/status
+  - objectstorageusers/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -1,0 +1,23 @@
+apiVersion: objectstorage.upcloud.polarsquad.com/v1alpha1
+kind: ObjectStoragePolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: objectstoragepolicy-sample
+spec:
+  serviceRef:
+    name: managedobjectstorage-sample
+  name: samplepolicy
+  description: Sample read-only policy
+  document: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject"],
+          "Resource": ["arn:upcloud:objectstorage::bucket/*"]
+        }
+      ]
+    }

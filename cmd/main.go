@@ -39,8 +39,10 @@ import (
 
 	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
+	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
 	databasecontroller "github.com/polarsquad/upcloud-operator/internal/controller/database"
 	networkcontroller "github.com/polarsquad/upcloud-operator/internal/controller/network"
+	objectstoragecontroller "github.com/polarsquad/upcloud-operator/internal/controller/objectstorage"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -54,6 +56,7 @@ func init() {
 
 	utilruntime.Must(networkv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(databasev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(objectstoragev1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -219,6 +222,30 @@ func main() {
 	}
 	if err := databasecontroller.SetupManagedDatabaseLogicalDatabaseController(mgr, upcloudSvc); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabaseLogicalDatabase")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupManagedObjectStorageController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ManagedObjectStorage")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupObjectStoragePolicyController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObjectStoragePolicy")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupObjectStorageUserController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageUser")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupObjectStorageAccessKeyController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageAccessKey")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupObjectStorageBucketController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageBucket")
+		os.Exit(1)
+	}
+	if err := objectstoragecontroller.SetupObjectStorageCustomDomainController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ObjectStorageCustomDomain")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
