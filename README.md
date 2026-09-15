@@ -30,11 +30,12 @@ kubectl apply -f https://github.com/polarsquad/upcloud-operator/releases/latest/
 ### Verify the image signature
 
 The release workflow signs the multi-arch image keylessly (GitHub OIDC +
-Sigstore). Verify before you trust it:
+Sigstore). Verify before you trust it. The certificate identity embeds
+the ref the image was built from, so include `@refs/tags/<tag>`:
 
 ```sh
 cosign verify ghcr.io/polarsquad/upcloud-operator:<tag> \
-  --certificate-identity https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml \
+  --certificate-identity "https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml@refs/tags/<tag>" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

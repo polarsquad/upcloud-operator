@@ -107,12 +107,12 @@ git push origin v0.1.0
 ```
 
 Tags matching `*rc*`, `*alpha*` or `*beta*` create pre-releases.
-Verify a release:
+Verify a release (the certificate identity embeds the tag ref):
 
 ```sh
 docker manifest inspect ghcr.io/polarsquad/upcloud-operator:v0.1.0
 cosign verify ghcr.io/polarsquad/upcloud-operator:v0.1.0 \
-  --certificate-identity https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml \
+  --certificate-identity "https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml@refs/tags/v0.1.0" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
