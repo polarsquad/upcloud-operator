@@ -1,0 +1,11 @@
+apiVersion: network.upcloud.polarsquad.com/v1alpha1
+kind: FloatingIP
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: floatingip-sample
+spec:
+  zone: fi-hel1
+  family: IPv4
+  access: public

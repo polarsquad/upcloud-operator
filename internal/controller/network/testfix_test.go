@@ -21,4 +21,8 @@ const (
 	testConnectionUUID = "conn-1"
 	testRemoteAddr     = "203.0.113.10"
 	testConnUID        = "conn-uid"
+	testIPFamily       = "IPv4"
+	testIPAccess       = "public"
+	testPeeringState   = "active"
+	testNetUID         = "net-uid"
 )

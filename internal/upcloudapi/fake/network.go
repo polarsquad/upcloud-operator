@@ -51,6 +51,8 @@ type NetworkAPI struct {
 	seq      int
 	Networks map[string]*upcloud.Network
 	Routers  map[string]*upcloud.Router
+	IPs      map[string]*upcloud.IPAddress // keyed by address
+	Peerings map[string]*upcloud.NetworkPeering
 	Calls    []string // method names in call order
 	// FailNext, when set, is returned by the next mutating call and cleared.
 	FailNext error
@@ -58,7 +60,12 @@ type NetworkAPI struct {
 
 // NewNetworkAPI returns an empty fake.
 func NewNetworkAPI() *NetworkAPI {
-	return &NetworkAPI{Networks: map[string]*upcloud.Network{}, Routers: map[string]*upcloud.Router{}}
+	return &NetworkAPI{
+		Networks: map[string]*upcloud.Network{},
+		Routers:  map[string]*upcloud.Router{},
+		IPs:      map[string]*upcloud.IPAddress{},
+		Peerings: map[string]*upcloud.NetworkPeering{},
+	}
 }
 
 func (f *NetworkAPI) record(name string) error {
@@ -253,5 +260,181 @@ func (f *NetworkAPI) DeleteRouter(_ context.Context, r *request.DeleteRouterRequ
 		}
 	}
 	delete(f.Routers, r.UUID)
+	return nil
+}
+
+func (f *NetworkAPI) GetIPAddresses(_ context.Context) (*upcloud.IPAddresses, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Calls = append(f.Calls, "GetIPAddresses")
+	out := &upcloud.IPAddresses{}
+	for _, ip := range f.IPs {
+		out.IPAddresses = append(out.IPAddresses, *ip)
+	}
+	return out, nil
+}
+
+func (f *NetworkAPI) GetIPAddressDetails(_ context.Context, r *request.GetIPAddressDetailsRequest) (*upcloud.IPAddress, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Calls = append(f.Calls, "GetIPAddressDetails")
+	ip, ok := f.IPs[r.Address]
+	if !ok {
+		return nil, NotFound("ip address")
+	}
+	cp := *ip
+	return &cp, nil
+}
+
+func (f *NetworkAPI) AssignIPAddress(_ context.Context, r *request.AssignIPAddressRequest) (*upcloud.IPAddress, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("AssignIPAddress"); err != nil {
+		return nil, err
+	}
+	var address string
+	if r.Family == "IPv6" {
+		f.seq++
+		address = fmt.Sprintf("2001:db8:%x::%x", f.seq, f.seq)
+	} else {
+		f.seq++
+		address = fmt.Sprintf("203.0.113.%d", 10+f.seq)
+	}
+	if _, exists := f.IPs[address]; exists {
+		return nil, Conflict("ip address")
+	}
+	ip := &upcloud.IPAddress{
+		Address:       address,
+		Family:        r.Family,
+		Access:        r.Access,
+		Zone:          r.Zone,
+		ReleasePolicy: r.ReleasePolicy,
+		PTRRecord:     "",
+		Floating:      upcloud.True,
+	}
+	f.IPs[address] = ip
+	cp := *ip
+	return &cp, nil
+}
+
+func (f *NetworkAPI) ModifyIPAddress(_ context.Context, r *request.ModifyIPAddressRequest) (*upcloud.IPAddress, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("ModifyIPAddress"); err != nil {
+		return nil, err
+	}
+	ip, ok := f.IPs[r.IPAddress]
+	if !ok {
+		return nil, NotFound("ip address")
+	}
+	if r.PTRRecord != "" {
+		ip.PTRRecord = r.PTRRecord
+	}
+	if r.ReleasePolicy != "" {
+		ip.ReleasePolicy = r.ReleasePolicy
+	}
+	cp := *ip
+	return &cp, nil
+}
+
+func (f *NetworkAPI) ReleaseIPAddress(_ context.Context, r *request.ReleaseIPAddressRequest) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("ReleaseIPAddress"); err != nil {
+		return err
+	}
+	if _, ok := f.IPs[r.IPAddress]; !ok {
+		return NotFound("ip address")
+	}
+	delete(f.IPs, r.IPAddress)
+	return nil
+}
+
+func (f *NetworkAPI) GetNetworkPeerings(_ context.Context, filters ...request.QueryFilter) (upcloud.NetworkPeerings, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Calls = append(f.Calls, "GetNetworkPeerings")
+	var out upcloud.NetworkPeerings
+	for _, p := range f.Peerings {
+		if hasAllLabels(p.Labels, filters) {
+			out = append(out, *p)
+		}
+	}
+	return out, nil
+}
+
+func (f *NetworkAPI) GetNetworkPeering(_ context.Context, r *request.GetNetworkPeeringRequest) (*upcloud.NetworkPeering, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Calls = append(f.Calls, "GetNetworkPeering")
+	p, ok := f.Peerings[r.UUID]
+	if !ok {
+		return nil, NotFound("network peering")
+	}
+	cp := *p
+	return &cp, nil
+}
+
+func (f *NetworkAPI) CreateNetworkPeering(_ context.Context, r *request.CreateNetworkPeeringRequest) (*upcloud.NetworkPeering, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("CreateNetworkPeering"); err != nil {
+		return nil, err
+	}
+	if r.Network.UUID != "" {
+		if _, ok := f.Networks[r.Network.UUID]; !ok {
+			return nil, NotFound("network")
+		}
+	}
+	p := &upcloud.NetworkPeering{
+		UUID: f.nextUUID("np"),
+		Name: r.Name,
+		Network: upcloud.NetworkPeeringNetwork{
+			UUID:       r.Network.UUID,
+			IPNetworks: []upcloud.NetworkPeeringIPNetwork{},
+		},
+		PeerNetwork:      upcloud.NetworkPeeringNetwork{UUID: r.PeerNetwork.UUID},
+		ConfiguredStatus: r.ConfiguredStatus,
+		State:            upcloud.NetworkPeeringStateActive,
+		Labels:           r.Labels,
+	}
+	f.Peerings[p.UUID] = p
+	cp := *p
+	return &cp, nil
+}
+
+func (f *NetworkAPI) ModifyNetworkPeering(_ context.Context, r *request.ModifyNetworkPeeringRequest) (*upcloud.NetworkPeering, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("ModifyNetworkPeering"); err != nil {
+		return nil, err
+	}
+	p, ok := f.Peerings[r.UUID]
+	if !ok {
+		return nil, NotFound("network peering")
+	}
+	if r.NetworkPeering.Name != "" {
+		p.Name = r.NetworkPeering.Name
+	}
+	if r.NetworkPeering.ConfiguredStatus != "" {
+		p.ConfiguredStatus = r.NetworkPeering.ConfiguredStatus
+	}
+	if r.NetworkPeering.Labels != nil {
+		p.Labels = *r.NetworkPeering.Labels
+	}
+	cp := *p
+	return &cp, nil
+}
+
+func (f *NetworkAPI) DeleteNetworkPeering(_ context.Context, r *request.DeleteNetworkPeeringRequest) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.record("DeleteNetworkPeering"); err != nil {
+		return err
+	}
+	if _, ok := f.Peerings[r.UUID]; !ok {
+		return NotFound("network peering")
+	}
+	delete(f.Peerings, r.UUID)
 	return nil
 }

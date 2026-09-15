@@ -105,6 +105,8 @@ var _ = BeforeSuite(func() {
 	Expect(SetupGatewayController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
 	Expect(SetupGatewayConnectionController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
 	Expect(SetupGatewayTunnelController(mgr, gwAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupNetworkPeeringController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
+	Expect(SetupFloatingIPController(mgr, fakeAPI, reconciler.Options{})).To(Succeed())
 
 	go func() {
 		defer GinkgoRecover()

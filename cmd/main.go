@@ -222,6 +222,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "GatewayTunnel")
 		os.Exit(1)
 	}
+	if err := networkcontroller.SetupNetworkPeeringController(mgr, upcloudSvc, rcOpts); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "NetworkPeering")
+		os.Exit(1)
+	}
+	if err := networkcontroller.SetupFloatingIPController(mgr, upcloudSvc, rcOpts); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "FloatingIP")
+		os.Exit(1)
+	}
 	if err := databasecontroller.SetupManagedDatabaseController(mgr, upcloudSvc, rcOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ManagedDatabase")
 		os.Exit(1)

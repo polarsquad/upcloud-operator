@@ -7,14 +7,14 @@ resource in sync with its Custom Resource.
 
 ## Kinds
 
-Twenty-three kinds across four API groups. See
+Twenty-five kinds across four API groups. See
 [docs/resources.md](docs/resources.md) for the full table: what each kind
 maps to, where its UpCloud identity lands, and which Secrets the operator
 produces.
 
 | Group | Kinds |
 |---|---|
-| `network.upcloud.polarsquad.com` | Network, Router, Gateway, GatewayConnection, GatewayTunnel |
+| `network.upcloud.polarsquad.com` | Network, Router, Gateway, GatewayConnection, GatewayTunnel, NetworkPeering, FloatingIP |
 | `database.upcloud.polarsquad.com` | ManagedDatabase, ManagedDatabaseUser, ManagedDatabaseLogicalDatabase |
 | `objectstorage.upcloud.polarsquad.com` | ManagedObjectStorage, ObjectStoragePolicy, ObjectStorageUser, ObjectStorageAccessKey, ObjectStorageBucket, ObjectStorageCustomDomain |
 | `loadbalancer.upcloud.polarsquad.com` | LoadBalancer, LoadBalancerBackend, LoadBalancerBackendMember, LoadBalancerBackendTLSConfig, LoadBalancerResolver, LoadBalancerFrontend, LoadBalancerFrontendRule, LoadBalancerFrontendTLSConfig, LoadBalancerCertificateBundle |
@@ -185,15 +185,18 @@ to adjust:
   the CRDs enforce it at admission. The one exception is GatewayTunnel:
   any spec change deletes and recreates the tunnel (the API has no
   tunnel modify), which re-establishes the VPN.
-- **Adoption.** Networks, Routers, Gateways, Managed Databases and
-  Managed Object Storage are adopted by the `k8s-uid` label. Children
-  (users, access keys, buckets, policies, custom domains, LoadBalancer
-  children) have no API labels and are matched by `(parent, name)`.
+- **Adoption.** Networks, Routers, Gateways, Managed Databases, Managed
+  Object Storage and Network Peerings are adopted by the `k8s-uid` label.
+  Children (users, access keys, buckets, policies, custom domains,
+  LoadBalancer children) have no API labels and are matched by `(parent,
+  name)`. FloatingIPs carry no API labels, so there is no adoption: a
+  FloatingIP with an empty `status.address` cannot be matched to an existing
+  address and is re-allocated.
 - **Redis.** Treated as deprecated by the SDK and not in the
   `ManagedDatabase` type enum.
 
-Floating IP and Network Peering are not included in v0.1 and are planned
-as follow-up kinds.
+Floating IPs are allocated unbound; attaching one to a server is not part of
+v0.1 (the operator does not manage Cloud Servers).
 
 ## Docs
 

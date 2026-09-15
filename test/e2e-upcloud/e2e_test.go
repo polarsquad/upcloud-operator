@@ -174,6 +174,7 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		samples := []string{
 			"config/samples/network_v1alpha1_router.yaml",
 			"config/samples/network_v1alpha1_network.yaml",
+			"config/samples/network_v1alpha1_floatingip.yaml",
 			"config/samples/objectstorage_v1alpha1_managedobjectstorage.yaml",
 			"config/samples/objectstorage_v1alpha1_objectstoragepolicy.yaml",
 			"config/samples/objectstorage_v1alpha1_objectstorageuser.yaml",
@@ -189,6 +190,7 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		By("waiting for the network and object storage chains to be Ready")
 		waitReady("router", "router-sample", 5*time.Minute)
 		waitReady("network", "network-sample", 5*time.Minute)
+		waitReady("floatingip", "floatingip-sample", 5*time.Minute)
 		waitReady("managedobjectstorage", "managedobjectstorage-sample", 5*time.Minute)
 		waitReady("objectstoragepolicy", "objectstoragepolicy-sample", 5*time.Minute)
 		waitReady("objectstorageuser", "objectstorageuser-sample", 5*time.Minute)
@@ -226,6 +228,7 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 // deleteAllSamples removes the applied samples in reverse dependency order.
 func deleteAllSamples() {
 	order := []string{
+		"config/samples/network_v1alpha1_floatingip.yaml",
 		"config/samples/database_v1alpha1_manageddatabase.yaml",
 		"config/samples/objectstorage_v1alpha1_objectstorageaccesskey.yaml",
 		"config/samples/objectstorage_v1alpha1_objectstorageuser.yaml",
@@ -281,6 +284,13 @@ func collectProbes() {
 	add("network", "network-sample", "{.status.uuid}",
 		func(ctx context.Context, u string) error {
 			_, e := svc.GetNetworkDetails(ctx, &upcloudrequest.GetNetworkDetailsRequest{UUID: u})
+			return e
+		})
+	// A floating IP is addressed by its IP, not a UUID; the status.address
+	// is the identity and the probe fetch must return 404 once released.
+	add("floatingip", "floatingip-sample", "{.status.address}",
+		func(ctx context.Context, u string) error {
+			_, e := svc.GetIPAddressDetails(ctx, &upcloudrequest.GetIPAddressDetailsRequest{Address: u})
 			return e
 		})
 	add("managedobjectstorage", "managedobjectstorage-sample", "{.status.uuid}",

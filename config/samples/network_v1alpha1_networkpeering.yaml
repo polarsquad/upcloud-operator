@@ -1,0 +1,16 @@
+apiVersion: network.upcloud.polarsquad.com/v1alpha1
+kind: NetworkPeering
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: networkpeering-sample
+spec:
+  networkRef:
+    name: network-sample
+  # The peer network lives in another account (or this one); replace with a
+  # real UpCloud network UUID before applying.
+  peerNetworkUUID: 00000000-0000-4000-8000-000000000000
+  configuredStatus: active
+  labels:
+    env: demo

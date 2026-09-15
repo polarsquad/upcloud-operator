@@ -60,7 +60,7 @@ func toIPNetworks(in []networkv1alpha1.IPNetwork) upcloud.IPNetworkSlice {
 	for _, p := range in {
 		family := p.Family
 		if family == "" {
-			family = "IPv4"
+			family = upcloud.IPAddressFamilyIPv4
 		}
 		out = append(out, upcloud.IPNetwork{
 			Address:          p.Address,

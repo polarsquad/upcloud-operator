@@ -100,9 +100,11 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - floatingips
   - gatewayconnections
   - gateways
   - gatewaytunnels
+  - networkpeerings
   - networks
   - routers
   verbs:
@@ -116,9 +118,11 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - floatingips/finalizers
   - gatewayconnections/finalizers
   - gateways/finalizers
   - gatewaytunnels/finalizers
+  - networkpeerings/finalizers
   - networks/finalizers
   - routers/finalizers
   verbs:
@@ -126,9 +130,11 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - floatingips/status
   - gatewayconnections/status
   - gateways/status
   - gatewaytunnels/status
+  - networkpeerings/status
   - networks/status
   - routers/status
   verbs:

@@ -2,6 +2,8 @@
 resources:
 - network_v1alpha1_network.yaml
 - network_v1alpha1_router.yaml
+- network_v1alpha1_floatingip.yaml
+- network_v1alpha1_networkpeering.yaml
 - network_v1alpha1_gateway.yaml
 - network_v1alpha1_gatewayconnection.yaml
 - network_v1alpha1_gatewaytunnel.yaml

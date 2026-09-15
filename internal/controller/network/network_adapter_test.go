@@ -31,7 +31,7 @@ func newFakeClient(t *testing.T) client.Client {
 
 func newNetwork() *networkv1alpha1.Network {
 	return &networkv1alpha1.Network{
-		ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "ns", UID: "net-uid"},
+		ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "ns", UID: testNetUID},
 		Spec: networkv1alpha1.NetworkSpec{
 			Zone:       testZone,
 			IPNetworks: []networkv1alpha1.IPNetwork{{Address: "10.0.1.0/24", DHCP: boolPtr(true)}},
@@ -70,7 +70,7 @@ func TestNetworkCreateWithoutRouter(t *testing.T) {
 	g.Expect(created.IPNetworks[0].Address).To(Equal("10.0.1.0/24"))
 	g.Expect(created.IPNetworks[0].DHCP).To(Equal(upcloud.True))
 	g.Expect(created.Router).To(BeEmpty())
-	g.Expect(upcloudapi.HasUID(created.Labels, "net-uid")).To(BeTrue())
+	g.Expect(upcloudapi.HasUID(created.Labels, testNetUID)).To(BeTrue())
 }
 
 func TestNetworkCreateWithRouterRefWaitsForRouter(t *testing.T) {
