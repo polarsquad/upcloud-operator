@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: lb-sample-tls
+type: kubernetes.io/tls
+data:
+  tls.crt: Q0VSVA==
+  tls.key: S0VZ

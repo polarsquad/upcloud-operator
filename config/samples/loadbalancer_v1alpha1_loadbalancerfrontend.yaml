@@ -1,0 +1,17 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerFrontend
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancerfrontend-sample
+spec:
+  loadBalancerRef:
+    name: loadbalancer-sample
+  name: web
+  mode: http
+  port: 80
+  defaultBackendRef:
+    name: loadbalancerbackend-sample
+  networks:
+    - name: public

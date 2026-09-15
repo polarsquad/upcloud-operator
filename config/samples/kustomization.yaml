@@ -15,4 +15,14 @@ resources:
 - objectstorage_v1alpha1_objectstorageaccesskey.yaml
 - objectstorage_v1alpha1_objectstoragebucket.yaml
 - objectstorage_v1alpha1_objectstoragecustomdomain.yaml
+- loadbalancer_v1alpha1_loadbalancer.yaml
+- loadbalancer_v1alpha1_loadbalancerbackend.yaml
+- loadbalancer_v1alpha1_loadbalancerbackendmember.yaml
+- loadbalancer_v1alpha1_loadbalancerbackendtlsconfig.yaml
+- loadbalancer_v1alpha1_loadbalancerresolver.yaml
+- loadbalancer_v1alpha1_loadbalancerfrontend.yaml
+- loadbalancer_v1alpha1_loadbalancerfrontendrule.yaml
+- loadbalancer_v1alpha1_loadbalancerfrontendtlsconfig.yaml
+- loadbalancer_v1alpha1_loadbalancercertificatebundle.yaml
+- loadbalancer_v1alpha1_lb-sample-tls.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

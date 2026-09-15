@@ -1,0 +1,13 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerResolver
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancerresolver-sample
+spec:
+  loadBalancerRef:
+    name: loadbalancer-sample
+  name: resolver-1
+  nameservers:
+    - 1.1.1.1

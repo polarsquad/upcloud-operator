@@ -1,0 +1,11 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerBackendTLSConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancerbackendtlsconfig-sample
+spec:
+  backendRef:
+    name: loadbalancerbackend-sample
+  name: tls-api

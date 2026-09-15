@@ -1,0 +1,15 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerBackendMember
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancerbackendmember-sample
+spec:
+  backendRef:
+    name: loadbalancerbackend-sample
+  name: node-1
+  type: static
+  ip: 10.0.0.5
+  port: 8080
+  weight: 1

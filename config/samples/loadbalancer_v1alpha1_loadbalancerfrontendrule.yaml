@@ -1,0 +1,20 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerFrontendRule
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancerfrontendrule-sample
+spec:
+  frontendRef:
+    name: loadbalancerfrontend-sample
+  name: api
+  priority: 10
+  matchers:
+    - type: src_ip
+      srcIP:
+        value: 10.0.0.0/8
+  actions:
+    - type: use_backend
+      useBackend:
+        backend: api

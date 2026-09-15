@@ -22,6 +22,40 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 )
 
+// Rule matcher type constants. The RuleMatcher.Type field is one of these;
+// the CEL rule on RuleMatcher enforces the matching sub-struct is set.
+const (
+	MatcherTypeSrcIP          = "src_ip"
+	MatcherTypeSrcPort        = "src_port"
+	MatcherTypeBodySize       = "body_size"
+	MatcherTypePath           = "path"
+	MatcherTypeURL            = "url"
+	MatcherTypeURLQuery       = "url_query"
+	MatcherTypeHost           = "host"
+	MatcherTypeHTTPMethod     = "http_method"
+	MatcherTypeHTTPStatus     = "http_status"
+	MatcherTypeCookie         = "cookie"
+	MatcherTypeHeader         = "header"
+	MatcherTypeRequestHeader  = "request_header"
+	MatcherTypeResponseHeader = "response_header"
+	MatcherTypeURLParam       = "url_param"
+	MatcherTypeNumMembersUp   = "num_members_up"
+)
+
+// Rule action type constants. The RuleAction.Type field is one of these; the
+// CEL rule on RuleAction enforces the matching sub-struct is set.
+const (
+	ActionTypeUseBackend          = "use_backend"
+	ActionTypeTCPReject           = "tcp_reject"
+	ActionTypeHTTPReturn          = "http_return"
+	ActionTypeHTTPRedirect        = "http_redirect"
+	ActionTypeHTTPRewritePath     = "http_rewrite_path"
+	ActionTypeHTTPRewriteURI      = "http_rewrite_uri"
+	ActionTypeSetForwardedHeaders = "set_forwarded_headers"
+	ActionTypeSetRequestHeader    = "set_request_header"
+	ActionTypeSetResponseHeader   = "set_response_header"
+)
+
 // MatcherSrcIP is a "src_ip" matcher.
 type MatcherSrcIP struct {
 	Value string `json:"value"`

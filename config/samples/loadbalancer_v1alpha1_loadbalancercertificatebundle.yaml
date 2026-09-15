@@ -1,0 +1,12 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancerCertificateBundle
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancercertificatebundle-sample
+spec:
+  name: api-cert
+  type: manual
+  certificateSecretRef:
+    name: lb-sample-tls

@@ -1,0 +1,13 @@
+apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
+kind: LoadBalancer
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: loadbalancer-sample
+spec:
+  plan: "0"
+  zone: fi-hel1
+  networks:
+    - name: public
+      type: public
