@@ -6,4 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: router-sample
 spec:
-  # TODO(user): Add fields here
+  staticRoutes:
+    - name: to-office
+      route: 10.9.0.0/16
+      nexthop: 10.0.0.1
+  labels:
+    env: demo

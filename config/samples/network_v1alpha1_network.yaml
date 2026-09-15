@@ -6,4 +6,9 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: network-sample
 spec:
-  # TODO(user): Add fields here
+  zone: fi-hel1
+  ipNetworks:
+    - address: 10.1.0.0/24
+      dhcp: true
+  routerRef:
+    name: router-sample
