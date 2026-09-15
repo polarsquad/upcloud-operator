@@ -50,6 +50,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gatewayconnections
   - gateways
   - networks
   - routers
@@ -64,6 +65,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gatewayconnections/finalizers
   - gateways/finalizers
   - networks/finalizers
   - routers/finalizers
@@ -72,6 +74,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gatewayconnections/status
   - gateways/status
   - networks/status
   - routers/status
