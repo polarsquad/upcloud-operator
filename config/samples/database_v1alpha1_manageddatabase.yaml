@@ -1,0 +1,16 @@
+apiVersion: database.upcloud.polarsquad.com/v1alpha1
+kind: ManagedDatabase
+metadata:
+  labels:
+    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: manageddatabase-sample
+spec:
+  type: pg
+  plan: 3x25
+  zone: fi-hel1
+  properties:
+    version: "16"
+  networks:
+    - name: public
+      type: public

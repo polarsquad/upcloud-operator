@@ -1,0 +1,292 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: manageddatabases.database.upcloud.polarsquad.com
+spec:
+  group: database.upcloud.polarsquad.com
+  names:
+    kind: ManagedDatabase
+    listKind: ManagedDatabaseList
+    plural: manageddatabases
+    singular: manageddatabase
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.type
+      name: Type
+      type: string
+    - jsonPath: .spec.plan
+      name: Plan
+      type: string
+    - jsonPath: .spec.zone
+      name: Zone
+      type: string
+    - jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ManagedDatabase is an UpCloud Managed Database service.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ManagedDatabaseSpec defines the desired state of an UpCloud
+              Managed Database.
+            properties:
+              additionalDiskSpaceGiB:
+                minimum: 0
+                type: integer
+              connectionSecretName:
+                description: |-
+                  Name of the Secret holding the primary connection details.
+                  Defaults to <metadata.name>-connection.
+                type: string
+              deletionPolicy:
+                default: Delete
+                description: DeletionPolicy decides what happens to the UpCloud resource
+                  when the CR is deleted.
+                enum:
+                - Delete
+                - Orphan
+                type: string
+              hostnamePrefix:
+                description: HostNamePrefix for the database host. Create only. Defaults
+                  to metadata.name.
+                maxLength: 60
+                pattern: ^[a-z0-9-]*$
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: |-
+                  UpCloudLabels is the user-controlled part of the labels set on an UpCloud resource.
+                  Keys managed-by and k8s-uid are reserved for the operator.
+                type: object
+              maintenance:
+                description: Maintenance window, applied only when set.
+                properties:
+                  dow:
+                    enum:
+                    - monday
+                    - tuesday
+                    - wednesday
+                    - thursday
+                    - friday
+                    - saturday
+                    - sunday
+                    type: string
+                  time:
+                    pattern: ^\d{2}:\d{2}:\d{2}$
+                    type: string
+                type: object
+              networks:
+                description: Network attachments, at most 8.
+                items:
+                  description: |-
+                    NetworkAttachment mirrors the UpCloud network object accepted by Managed
+                    Database, Managed Object Storage and Load Balancer create requests.
+                  properties:
+                    family:
+                      default: IPv4
+                      enum:
+                      - IPv4
+                      - IPv6
+                      type: string
+                    name:
+                      description: Name of the attachment, unique within the service.
+                      maxLength: 64
+                      pattern: ^[a-zA-Z0-9_-]+$
+                      type: string
+                    networkRef:
+                      description: NetworkRef points at a Network CR in the same namespace;
+                        its status.uuid is used.
+                      properties:
+                        name:
+                          minLength: 1
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type:
+                      enum:
+                      - public
+                      - private
+                      - utility
+                      type: string
+                    uuid:
+                      description: UUID of an existing UpCloud SDN network. Private
+                        attachments need uuid or networkRef.
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+              plan:
+                description: Plan, for example 3x25.
+                minLength: 1
+                type: string
+              powered:
+                default: true
+                description: |-
+                  Powered requests the service to be running (true, default) or
+                  stopped (false). Changes trigger Start/Shutdown.
+                type: boolean
+              properties:
+                description: 'Engine properties, for example {"version": "16"}. Free-form
+                  object.'
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              terminationProtection:
+                default: false
+                type: boolean
+              title:
+                description: Title in UpCloud. Defaults to metadata.name.
+                maxLength: 255
+                type: string
+              type:
+                description: Engine, for example pg. Immutable.
+                enum:
+                - pg
+                - mysql
+                - valkey
+                - opensearch
+                type: string
+                x-kubernetes-validations:
+                - message: type is immutable
+                  rule: self == oldSelf
+              zone:
+                description: Zone, for example fi-hel1. Immutable.
+                minLength: 1
+                type: string
+                x-kubernetes-validations:
+                - message: zone is immutable
+                  rule: self == oldSelf
+            required:
+            - plan
+            - type
+            - zone
+            type: object
+            x-kubernetes-validations:
+            - message: private networks need uuid or networkRef
+              rule: '!has(self.networks) || self.networks.all(n, n.type != ''private''
+                || has(n.uuid) || has(n.networkRef))'
+          status:
+            description: ManagedDatabaseStatus defines the observed state of ManagedDatabase.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              nodeCount:
+                description: NodeCount reported by the API.
+                type: integer
+              powered:
+                description: Powered reported by the API.
+                type: boolean
+              primaryHost:
+                description: PrimaryHost of the service, from the service URI params.
+                type: string
+              primaryPort:
+                description: PrimaryPort of the service, from the service URI params.
+                type: integer
+              serviceURIHost:
+                description: ServiceURIHost is the host part of the service URI.
+                type: string
+              state:
+                description: Current UpCloud state, for example running.
+                type: string
+              uuid:
+                description: UUID of the service in UpCloud.
+                type: string
+              version:
+                description: Version from the "version" property, when the API reports
+                  one.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

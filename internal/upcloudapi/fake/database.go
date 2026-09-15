@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"sync"
 
@@ -19,8 +20,8 @@ var _ upcloudapi.DatabaseAPI = (*DatabaseAPI)(nil)
 // Users are stored inside Databases[uuid].Users. Logical databases are stored
 // in the LogicalDBs side map keyed by service UUID.
 type DatabaseAPI struct {
-	mu        sync.Mutex
-	seq       int
+	mu         sync.Mutex
+	seq        int
 	Databases  map[string]*upcloud.ManagedDatabase
 	LogicalDBs map[string][]upcloud.ManagedDatabaseLogicalDatabase
 	Calls      []string // method names in call order
@@ -175,9 +176,7 @@ func (f *DatabaseAPI) ModifyManagedDatabase(_ context.Context, r *request.Modify
 		if db.Properties == nil {
 			db.Properties = upcloud.ManagedDatabaseProperties{}
 		}
-		for k, v := range r.Properties {
-			db.Properties[k] = v
-		}
+		maps.Copy(db.Properties, r.Properties)
 	}
 	cp := *db
 	return &cp, nil

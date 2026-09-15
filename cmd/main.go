@@ -37,6 +37,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
 	networkcontroller "github.com/polarsquad/upcloud-operator/internal/controller/network"
 	// +kubebuilder:scaffold:imports
@@ -51,6 +52,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(networkv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(databasev1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
