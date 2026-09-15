@@ -185,20 +185,13 @@ func main() {
 		setupLog.Error(err, "unable to create UpCloud API client")
 		os.Exit(1)
 	}
-	_ = upcloudSvc // used by controllers registered in later phases
 
-	if err := (&networkcontroller.NetworkReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "network-network")
+	if err := networkcontroller.SetupNetworkController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Network")
 		os.Exit(1)
 	}
-	if err := (&networkcontroller.RouterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "network-router")
+	if err := networkcontroller.SetupRouterController(mgr, upcloudSvc); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Router")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

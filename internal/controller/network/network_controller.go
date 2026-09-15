@@ -17,47 +17,48 @@ limitations under the License.
 package network
 
 import (
-	"context"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 )
 
-// NetworkReconciler reconciles a Network object
-type NetworkReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
+// FinalizerNetwork guards Network deletion.
+const FinalizerNetwork = "network.upcloud.polarsquad.com/network"
 
 // +kubebuilder:rbac:groups=network.upcloud.polarsquad.com,resources=networks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=network.upcloud.polarsquad.com,resources=networks/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=network.upcloud.polarsquad.com,resources=networks/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Network object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/reconcile
-func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
-
-	// TODO(user): your logic here
-
-	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
+// SetupNetworkController registers the Network reconciler. Networks are
+// re-queued when the Router they reference changes.
+func SetupNetworkController(mgr ctrl.Manager, api upcloudapi.NetworkAPI) error {
+	r := &reconciler.Reconciler[*networkv1alpha1.Network]{
+		Client:    mgr.GetClient(),
+		Adapter:   &NetworkAdapter{API: api, Client: mgr.GetClient()},
+		New:       func() *networkv1alpha1.Network { return &networkv1alpha1.Network{} },
+		Finalizer: FinalizerNetwork,
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networkv1alpha1.Network{}).
+		Watches(&networkv1alpha1.Router{}, handler.EnqueueRequestsFromMapFunc(
+			reconciler.DependentsOf(mgr.GetClient(),
+				func() *networkv1alpha1.NetworkList { return &networkv1alpha1.NetworkList{} },
+				func(l *networkv1alpha1.NetworkList) []*networkv1alpha1.Network {
+					out := make([]*networkv1alpha1.Network, 0, len(l.Items))
+					for i := range l.Items {
+						out = append(out, &l.Items[i])
+					}
+					return out
+				},
+				func(n *networkv1alpha1.Network) []string {
+					if n.Spec.RouterRef == nil {
+						return nil
+					}
+					return []string{n.Spec.RouterRef.Name}
+				}))).
 		Named("network-network").
 		Complete(r)
 }

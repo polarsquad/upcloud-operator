@@ -28,12 +28,15 @@ import (
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -46,6 +49,8 @@ var (
 	testEnv   *envtest.Environment
 	cfg       *rest.Config
 	k8sClient client.Client
+	fakeAPI   = fake.NewNetworkAPI()
+	mgr       ctrl.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -84,6 +89,19 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	mgr, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
+	})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(SetupNetworkController(mgr, fakeAPI)).To(Succeed())
+	Expect(SetupRouterController(mgr, fakeAPI)).To(Succeed())
+
+	go func() {
+		defer GinkgoRecover()
+		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
+	}()
 })
 
 var _ = AfterSuite(func() {
