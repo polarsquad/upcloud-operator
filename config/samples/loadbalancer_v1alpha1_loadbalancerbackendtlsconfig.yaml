@@ -9,3 +9,5 @@ spec:
   backendRef:
     name: loadbalancerbackend-sample
   name: tls-api
+  certificateBundleRef:
+    name: loadbalancercertificatebundle-sample
