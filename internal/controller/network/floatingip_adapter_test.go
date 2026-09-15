@@ -72,6 +72,35 @@ func TestFloatingIPObserveDetectsDriftAndUpdateFixesIt(t *testing.T) {
 	g.Expect(obs.UpToDate).To(BeTrue())
 }
 
+func TestFloatingIPClearedPtrRecordIsNotDrift(t *testing.T) {
+	// The API cannot clear a PTR record (the modify request omits empty
+	// values), so clearing spec.ptrRecord must converge to UpToDate instead
+	// of looping: no drift, no further Modify calls.
+	g := NewWithT(t)
+	api := fake.NewNetworkAPI()
+	a := &FloatingIPAdapter{API: api}
+	f := newFloatingIP()
+	ctx := context.Background()
+	g.Expect(a.Create(ctx, f)).To(Succeed())
+
+	f.Spec.PTRRecord = "ip1.example.org."
+	obs, err := a.Observe(ctx, f)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(obs.UpToDate).To(BeFalse())
+	g.Expect(a.Update(ctx, f)).To(Succeed())
+	g.Expect(api.IPs[f.Status.Address].PTRRecord).To(Equal("ip1.example.org."))
+
+	// Clear the record in the spec: the address keeps its record (the API
+	// has no clear), but the CR must report converged, not drift.
+	f.Spec.PTRRecord = ""
+	obs, err = a.Observe(ctx, f)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(obs).To(Equal(reconciler.Observation{Exists: true, UpToDate: true, Ready: true}))
+	// The stored record is untouched; it is only removed by delete +
+	// recreate.
+	g.Expect(api.IPs[f.Status.Address].PTRRecord).To(Equal("ip1.example.org."))
+}
+
 func TestFloatingIPObserveImmutablesAreOutOfScopeForUpdate(t *testing.T) {
 	g := NewWithT(t)
 	api := fake.NewNetworkAPI()

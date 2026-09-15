@@ -47,11 +47,15 @@ func (a *FloatingIPAdapter) Observe(ctx context.Context, f *networkv1alpha1.Floa
 	f.Status.Address = ip.Address
 	f.Status.MAC = ip.MAC
 	f.Status.PartOfPlan = ip.PartOfPlan == upcloud.True
+	// An empty spec.ptrRecord is not drift: the API's modify omits empty
+	// values (the SDK request field is omitempty) and cannot clear a record,
+	// so an empty spec value is accepted as-is. Clearing requires delete +
+	// recreate (see docs/resources.md).
 	upToDate := ip.Zone == f.Spec.Zone &&
 		ip.Family == f.Spec.Family &&
 		ip.Access == f.Spec.Access &&
 		string(ip.ReleasePolicy) == f.Spec.ReleasePolicy &&
-		ip.PTRRecord == f.Spec.PTRRecord
+		(f.Spec.PTRRecord == "" || ip.PTRRecord == f.Spec.PTRRecord)
 	return reconciler.Observation{Exists: true, UpToDate: upToDate, Ready: true}, nil
 }
 
