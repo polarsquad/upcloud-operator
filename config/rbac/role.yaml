@@ -8,6 +8,7 @@ rules:
   - network.upcloud.polarsquad.com
   resources:
   - networks
+  - routers
   verbs:
   - create
   - delete
@@ -20,12 +21,14 @@ rules:
   - network.upcloud.polarsquad.com
   resources:
   - networks/finalizers
+  - routers/finalizers
   verbs:
   - update
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
   - networks/status
+  - routers/status
   verbs:
   - get
   - patch
