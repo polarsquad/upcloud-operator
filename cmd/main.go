@@ -36,6 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
+	networkcontroller "github.com/polarsquad/upcloud-operator/internal/controller/network"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -47,6 +50,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
+	utilruntime.Must(networkv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -183,6 +187,13 @@ func main() {
 	}
 	_ = upcloudSvc // used by controllers registered in later phases
 
+	if err := (&networkcontroller.NetworkReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "network-network")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

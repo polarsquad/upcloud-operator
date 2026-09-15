@@ -9,4 +9,14 @@ layout:
 multigroup: true
 projectName: upcloud-operator
 repo: github.com/polarsquad/upcloud-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: upcloud.polarsquad.com
+  group: network
+  kind: Network
+  path: github.com/polarsquad/upcloud-operator/api/network/v1alpha1
+  version: v1alpha1
 version: "3"
