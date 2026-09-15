@@ -20,11 +20,11 @@ import (
 
 func boolPtr(v bool) *bool { return &v }
 
-func newFakeClient(t *testing.T, objs ...client.Object) client.Client {
+func newFakeClient(t *testing.T) client.Client {
 	g := NewWithT(t)
 	s := runtime.NewScheme()
 	g.Expect(networkv1alpha1.AddToScheme(s)).To(Succeed())
-	return fakeclient.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
+	return fakeclient.NewClientBuilder().WithScheme(s).Build()
 }
 
 func newNetwork() *networkv1alpha1.Network {

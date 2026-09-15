@@ -2,6 +2,7 @@ package reconciler
 
 import (
 	"context"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,11 +25,8 @@ func DependentsOf[T client.Object, L client.ObjectList](
 		}
 		var out []ctrl.Request
 		for _, it := range items(list) {
-			for _, name := range refNames(it) {
-				if name == obj.GetName() {
-					out = append(out, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: it.GetNamespace(), Name: it.GetName()}})
-					break
-				}
+			if slices.Contains(refNames(it), obj.GetName()) {
+				out = append(out, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: it.GetNamespace(), Name: it.GetName()}})
 			}
 		}
 		return out

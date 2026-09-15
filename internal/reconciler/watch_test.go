@@ -13,6 +13,8 @@ import (
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
 )
 
+const testZone = "fi-hel1"
+
 func TestDependentsOfEnqueuesOnlyMatchingChildren(t *testing.T) {
 	g := NewWithT(t)
 	s := runtime.NewScheme()
@@ -20,15 +22,15 @@ func TestDependentsOfEnqueuesOnlyMatchingChildren(t *testing.T) {
 
 	n1 := &networkv1alpha1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "ns"},
-		Spec:       networkv1alpha1.NetworkSpec{Zone: "fi-hel1", RouterRef: &common.LocalObjectReference{Name: "r1"}},
+		Spec:       networkv1alpha1.NetworkSpec{Zone: testZone, RouterRef: &common.LocalObjectReference{Name: "r1"}},
 	}
 	n2 := &networkv1alpha1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "n2", Namespace: "ns"},
-		Spec:       networkv1alpha1.NetworkSpec{Zone: "fi-hel1", RouterRef: &common.LocalObjectReference{Name: "other"}},
+		Spec:       networkv1alpha1.NetworkSpec{Zone: testZone, RouterRef: &common.LocalObjectReference{Name: "other"}},
 	}
 	n3 := &networkv1alpha1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "n3", Namespace: "ns"},
-		Spec:       networkv1alpha1.NetworkSpec{Zone: "fi-hel1"},
+		Spec:       networkv1alpha1.NetworkSpec{Zone: testZone},
 	}
 	c := fakeclient.NewClientBuilder().WithScheme(s).WithObjects(n1, n2, n3).Build()
 
