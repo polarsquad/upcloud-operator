@@ -18,7 +18,7 @@ var _ = Describe("Network group end to end against the fake API", func() {
 		Expect(k8sClient.Create(ctx, router)).To(Succeed())
 		net := &networkv1alpha1.Network{
 			ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "default"},
-			Spec: networkv1alpha1.NetworkSpec{Zone: "fi-hel1",
+			Spec: networkv1alpha1.NetworkSpec{Zone: testZone,
 				IPNetworks: []networkv1alpha1.IPNetwork{{Address: "10.1.0.0/24"}},
 				RouterRef:  &common.LocalObjectReference{Name: "r1"}},
 		}

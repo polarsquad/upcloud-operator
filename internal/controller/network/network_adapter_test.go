@@ -31,7 +31,7 @@ func newNetwork() *networkv1alpha1.Network {
 	return &networkv1alpha1.Network{
 		ObjectMeta: metav1.ObjectMeta{Name: "n1", Namespace: "ns", UID: "net-uid"},
 		Spec: networkv1alpha1.NetworkSpec{
-			Zone:       "fi-hel1",
+			Zone:       testZone,
 			IPNetworks: []networkv1alpha1.IPNetwork{{Address: "10.0.1.0/24", DHCP: boolPtr(true)}},
 		},
 	}

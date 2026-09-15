@@ -50,6 +50,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gateways
   - networks
   - routers
   verbs:
@@ -63,6 +64,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gateways/finalizers
   - networks/finalizers
   - routers/finalizers
   verbs:
@@ -70,6 +72,7 @@ rules:
 - apiGroups:
   - network.upcloud.polarsquad.com
   resources:
+  - gateways/status
   - networks/status
   - routers/status
   verbs:
