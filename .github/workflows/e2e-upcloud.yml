@@ -1,0 +1,49 @@
+name: e2e (real UpCloud API)
+
+# COST: one run provisions a real Managed Database (cheapest pg plan) for
+# roughly 20 minutes, plus a network, router and managed object storage.
+# This workflow is manual-only and gated behind the "upcloud-e2e"
+# environment (required reviewers), so the token cannot be spent by an
+# unreviewed dispatch. It never runs on PRs or pushes.
+#
+# Setup (admin, one-time): create a GitHub environment named
+# "upcloud-e2e" with required reviewers, and add the repository secret
+# UPCLOUD_TOKEN (a scoped UpCloud API token). See docs/development.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-upcloud:
+    name: Run on Ubuntu
+    runs-on: ubuntu-latest
+    environment: upcloud-e2e
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install the latest version of kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-$(go env GOARCH)
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Verify kind installation
+        run: kind version
+
+      - name: Run the real-API e2e suite
+        env:
+          UPCLOUD_TOKEN: ${{ secrets.UPCLOUD_TOKEN }}
+        run: |
+          go mod tidy
+          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -v -ginkgo.v
