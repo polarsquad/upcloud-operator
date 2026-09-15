@@ -1,0 +1,54 @@
+{
+  // Renovate config (hosted GitHub App). Covered surfaces:
+  //   - go.mod (gomod manager, tidy after update)
+  //   - .github/workflows action pins (github-actions manager)
+  //   - Dockerfile base images (dockerfile manager)
+  //   - mise.toml tool pins (mise manager)
+  //   - kubebuilder Makefile tool pins (custom regex managers below)
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits"],
+  "schedule": ["after 6am on monday"],
+  "timezone": "Europe/Helsinki",
+  "commitBody": "Refs: #1",
+  "postUpdateOptions": ["gomodTidy"],
+  "packageRules": [
+    {
+      "description": "Kubernetes Go modules move together",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/controller-runtime"],
+      "groupName": "kubernetes go modules"
+    },
+    {
+      "description": "GitHub Actions in one PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "kustomize pin in the kubebuilder Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["KUSTOMIZE_VERSION \\?= (?<currentValue>v[0-9.]+)"],
+      "depNameTemplate": "kubernetes-sigs/kustomize",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^kustomize/(?<version>v.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "controller-tools pin in the kubebuilder Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["CONTROLLER_TOOLS_VERSION \\?= (?<currentValue>v[0-9.]+)"],
+      "depNameTemplate": "kubernetes-sigs/controller-tools",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "description": "golangci-lint pin in the kubebuilder Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": ["GOLANGCI_LINT_VERSION \\?= (?<currentValue>v[0-9.]+)"],
+      "depNameTemplate": "golangci/golangci-lint",
+      "datasourceTemplate": "github-releases"
+    }
+  ]
+}
