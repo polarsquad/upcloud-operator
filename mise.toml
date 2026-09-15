@@ -1,0 +1,11 @@
+# Local tool pins. CI uses the versions in go.mod and Makefile; keep these in step.
+[tools]
+go = "1.26"
+kubebuilder = "4.15.0"
+kind = "0.31"
+kubectl = "1.36"
+golangci-lint = "2.12.2"
+
+[tasks.check]
+description = "Everything CI runs, locally"
+run = "make manifests generate fmt vet lint test"
