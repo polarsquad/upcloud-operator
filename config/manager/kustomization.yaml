@@ -1,2 +1,4 @@
 resources:
 - manager.yaml
+patches:
+- path: manager_credentials_patch.yaml
