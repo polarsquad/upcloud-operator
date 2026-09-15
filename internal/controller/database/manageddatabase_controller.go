@@ -17,41 +17,30 @@ limitations under the License.
 package database
 
 import (
-	"context"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 )
 
-// ManagedDatabaseReconciler reconciles a ManagedDatabase object.
-//
-// The adapter-based implementation replaces this scaffold in the follow-up
-// task; the RBAC markers below are final for the group and feed
-// config/rbac/role.yaml via `make manifests`.
-type ManagedDatabaseReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
+// FinalizerManagedDatabase guards ManagedDatabase deletion.
+const FinalizerManagedDatabase = "database.upcloud.polarsquad.com/manageddatabase"
 
 // +kubebuilder:rbac:groups=database.upcloud.polarsquad.com,resources=manageddatabases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=database.upcloud.polarsquad.com,resources=manageddatabases/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=database.upcloud.polarsquad.com,resources=manageddatabases/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-func (r *ManagedDatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
-
-	return ctrl.Result{}, nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *ManagedDatabaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
+// SetupManagedDatabaseController registers the ManagedDatabase reconciler.
+// The service is polled for state changes; there are no watch sources.
+func SetupManagedDatabaseController(mgr ctrl.Manager, api upcloudapi.DatabaseAPI) error {
+	r := &reconciler.Reconciler[*databasev1alpha1.ManagedDatabase]{
+		Client:    mgr.GetClient(),
+		Adapter:   &ManagedDatabaseAdapter{API: api, Client: mgr.GetClient()},
+		New:       func() *databasev1alpha1.ManagedDatabase { return &databasev1alpha1.ManagedDatabase{} },
+		Finalizer: FinalizerManagedDatabase,
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1alpha1.ManagedDatabase{}).
 		Named("database-manageddatabase").
