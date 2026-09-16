@@ -39,7 +39,7 @@ func TestRouterObserveMissingThenCreate(t *testing.T) {
 	g.Expect(r.Status.UUID).To(HavePrefix("rtr-"))
 	created := api.Routers[r.Status.UUID]
 	g.Expect(created.Name).To(Equal("r1"))
-	g.Expect(created.StaticRoutes).To(Equal([]upcloud.StaticRoute{{Name: "to-office", Route: "10.9.0.0/16", Nexthop: "10.0.0.1", Type: upcloud.RouterStaticRouteTypeUser}}))
+	g.Expect(created.StaticRoutes).To(Equal([]upcloud.StaticRoute{{Name: "to-office", Route: "10.9.0.0/16", Nexthop: "10.0.0.1"}}))
 	g.Expect(upcloudapi.HasUID(created.Labels, "router-uid")).To(BeTrue())
 
 	obs, err = a.Observe(ctx, r)

@@ -11,7 +11,9 @@ import (
 func toStaticRoutes(in []networkv1alpha1.StaticRoute) []upcloud.StaticRoute {
 	out := make([]upcloud.StaticRoute, 0, len(in))
 	for _, r := range in {
-		out = append(out, upcloud.StaticRoute{Name: r.Name, Route: r.Route, Nexthop: r.Nexthop, Type: upcloud.RouterStaticRouteTypeUser})
+		// Type is a response-only attribute: the router create and modify
+		// endpoints reject it with UNKNOWN_ATTRIBUTE (issue #28).
+		out = append(out, upcloud.StaticRoute{Name: r.Name, Route: r.Route, Nexthop: r.Nexthop})
 	}
 	return out
 }
