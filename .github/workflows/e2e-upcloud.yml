@@ -46,7 +46,14 @@ jobs:
           UPCLOUD_TOKEN: ${{ secrets.UPCLOUD_TOKEN }}
         run: |
           go mod tidy
-          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -v -ginkgo.v
+          # -timeout overrides Go's 10m default so the alarm can never fire
+          # inside AfterSuite, where it would kill the mid-teardown deletes
+          # and leak the run's paid resources into the next dispatch. The
+          # suite's worst case is ~85m wall clock (BeforeSuite ~2.5m +
+          # controller-ready 3m + 7 x 5m Ready waits + 15m database Ready +
+          # 20m waitForCRsGone + 5m waitForGone, plus AfterSuite's own
+          # 20m/5m waits on a failed run); 90m covers it with headroom.
+          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -timeout 90m -v -ginkgo.v
 
       - name: Upload failure diagnostics
         if: failure()
