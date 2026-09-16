@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: managedobjectstorage-sample
 spec:
-  region: fi-hel1
+  region: europe-1
   networks:
     - name: public
       type: public
