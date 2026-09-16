@@ -12,5 +12,7 @@ spec:
   properties:
     version: "16"
   networks:
-    - name: public
-      type: public
+    - name: private
+      type: private
+      networkRef:
+        name: network-sample
