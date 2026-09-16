@@ -1,0 +1,32 @@
+name: verify upcloud token (throwaway)
+
+# ONE-SHOT verification of the repo UPCLOUD_TOKEN against the UpCloud API.
+# Prints only the HTTP status and the authenticated account identity.
+# The token itself is never printed. Delete this workflow after use.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe /user
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe UpCloud /1.3/user with the repo secret
+        env:
+          UPCLOUD_TOKEN: ${{ secrets.UPCLOUD_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/uc-user.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${UPCLOUD_TOKEN}" \
+            https://api.upcloud.com/1.3/user)
+          echo "HTTP status: $code"
+          if [ "$code" = "200" ]; then
+            python3 -c 'import json; d=json.load(open("/tmp/uc-user.json")); print("authenticated user:", d.get("username"), "| email:", d.get("email"), "| organisation:", d.get("organisation"))'
+          else
+            echo "response body:"
+            head -c 400 /tmp/uc-user.json; echo
+          fi
+          rm -f /tmp/uc-user.json
