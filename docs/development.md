@@ -91,7 +91,15 @@ the same group.
 9. **Docs row.** Add a row to `docs/resources.md`: kind, UpCloud
    counterpart, identity in status, produced Secrets, notes.
 
-10. **Verify.** `mise run check`, then the group's envtest suite. The
+10. **CRD manifest registration.** Register the generated manifest in
+    `config/crd/kustomization.yaml` (under the group's other entries):
+    kustomize silently ignores files in `bases/` that the list does not
+    name, so an unregistered kind installs no CRD. `make install`,
+    `make deploy` and the release `install.yaml` all render from this
+    list, and the miss only surfaces at apply time. `make lint` fails
+    with a pointer to the file when a manifest is unregistered.
+
+11. **Verify.** `mise run check`, then the group's envtest suite. The
     golden rules in `AGENTS.md` apply.
 
 ## Releasing

@@ -95,8 +95,26 @@ cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
 .PHONY: lint
-lint: golangci-lint ## Run golangci-lint linter
+lint: golangci-lint verify-crd-kustomization ## Run golangci-lint linter and CRD manifest checks
 	"$(GOLANGCI_LINT)" run
+
+## verify-crd-kustomization: every generated CRD manifest under
+## config/crd/bases/ must be listed in config/crd/kustomization.yaml.
+## kustomize silently ignores unlisted files, so a kind added without
+## registering its manifest installs no CRD (make install / make deploy and
+## the release install.yaml all render from this list) and the failure only
+## surfaces at apply time, far from the cause.
+.PHONY: verify-crd-kustomization
+verify-crd-kustomization:
+	@missing=0; \
+	for f in config/crd/bases/*.yaml; do \
+		base=$$(basename "$$f"); \
+		if ! grep -q "bases/$$base" config/crd/kustomization.yaml; then \
+			echo "ERROR: $$f is not listed in config/crd/kustomization.yaml; it will not be installed (see make install)"; \
+			missing=1; \
+		fi; \
+	done; \
+	exit $$missing
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes

@@ -7,6 +7,8 @@ resources:
 - bases/network.upcloud.polarsquad.com_gateways.yaml
 - bases/network.upcloud.polarsquad.com_gatewayconnections.yaml
 - bases/network.upcloud.polarsquad.com_gatewaytunnels.yaml
+- bases/network.upcloud.polarsquad.com_floatingips.yaml
+- bases/network.upcloud.polarsquad.com_networkpeerings.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabases.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabaseusers.yaml
 - bases/database.upcloud.polarsquad.com_manageddatabaselogicaldatabases.yaml
