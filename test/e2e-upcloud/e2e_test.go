@@ -48,6 +48,9 @@ const (
 	operatorNS = "upcloud-operator-system"
 	managedBy  = "upcloud-operator"
 	uidLabel   = "k8s-uid"
+	// sampleZone is the zone the samples allocate networks and floating
+	// IPs in; the detached-floating-IP sweep only releases addresses in it.
+	sampleZone = "fi-hel1"
 )
 
 var (
@@ -58,6 +61,9 @@ var (
 	svc          *upcloudsvc.Service
 	probes       []probe
 	repoRoot     string
+	// diagDir collects diagnostics for upload on failure. Created lazily
+	// by dumpDiagnostics; empty until then.
+	diagDir string
 )
 
 // resolveRepoRoot walks up from the package directory to the repository
@@ -147,13 +153,23 @@ var _ = AfterSuite(func() {
 	}
 	// Best-effort teardown that must not itself fail the suite: always
 	// remove the real UpCloud resources and the kind cluster, even if a
-	// spec failed halfway through.
+	// spec failed halfway through. The collection pass runs BEFORE the
+	// sample deletes: a spec that dies before collectProbes (the normal
+	// failure path) leaves no probes, and without this pass the sweeps and
+	// the gone-verification would iterate an empty list while real
+	// resources from the failed spec are still being provisioned.
+	By("collecting identities from every managed CR still in the run namespace")
+	collectLeakedCRs()
+	By("dumping diagnostics while the cluster is still up")
+	dumpDiagnostics()
 	By("deleting the applied samples in reverse dependency order")
 	deleteAllSamples()
 	By("waiting for the CRs to be removed (finalizers drive the real delete)")
 	waitForCRsGone(20 * time.Minute)
 	By("sweeping any leftover UpCloud resource labelled by this run")
 	sweepLabelled()
+	By("sweeping any detached floating IP left in the sample zone")
+	sweepDetachedFloatingIPs()
 	By("verifying the UpCloud API confirms everything is gone")
 	waitForGone(5 * time.Minute)
 	By("undeploying the operator and uninstalling the CRDs")
@@ -225,20 +241,12 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 	})
 })
 
-// deleteAllSamples removes the applied samples in reverse dependency order.
+// deleteAllSamples removes every managed CR in the run namespace by kind,
+// in reverse dependency order. Kind-based rather than sample-file-based so
+// CRs a failed spec created outside the sample set are still deleted.
 func deleteAllSamples() {
-	order := []string{
-		"config/samples/network_v1alpha1_floatingip.yaml",
-		"config/samples/database_v1alpha1_manageddatabase.yaml",
-		"config/samples/objectstorage_v1alpha1_objectstorageaccesskey.yaml",
-		"config/samples/objectstorage_v1alpha1_objectstorageuser.yaml",
-		"config/samples/objectstorage_v1alpha1_objectstoragepolicy.yaml",
-		"config/samples/objectstorage_v1alpha1_managedobjectstorage.yaml",
-		"config/samples/network_v1alpha1_network.yaml",
-		"config/samples/network_v1alpha1_router.yaml",
-	}
-	for _, f := range order {
-		_, _ = runCmd(exec.Command("kubectl", "delete", "-f", f, "-n", namespace, "--ignore-not-found=true"))
+	for _, k := range managedKinds {
+		_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace, "--ignore-not-found=true", "--all=true"))
 	}
 }
 
@@ -310,8 +318,8 @@ func collectProbes() {
 func waitForCRsGone(timeout time.Duration) {
 	Eventually(func() bool {
 		allGone := true
-		for _, p := range probes {
-			_, gerr := runCmd(exec.Command("kubectl", "get", p.kind, crName(p.kind), "-n", namespace))
+		for _, k := range managedKinds {
+			_, gerr := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace))
 			if gerr == nil {
 				allGone = false
 			}
@@ -397,6 +405,195 @@ func uidOf(labels []upcloud.Label) string {
 		}
 	}
 	return ""
+}
+
+// managedKinds describes every kind the operator owns: the plural resource
+// name, the status field holding its identity (empty means the kind has no
+// per-instance identity worth probing), and whether the UpCloud API can
+// confirm deletion for it. Order is teardown order (children first).
+var managedKinds = []struct {
+	name       string
+	identField string // jsonpath segment under .status, e.g. "uuid" or "address"
+	verifiable bool   // the API has a Get* whose 404 proves deletion
+}{
+	// database group
+	{"manageddatabaselogicaldatabase", "name", false},
+	{"manageddatabaseuser", "username", false},
+	{"manageddatabase", "uuid", true},
+	// object storage group
+	{"objectstorageaccesskey", "username", false},
+	{"objectstoragebucket", "name", false},
+	{"objectstoragecustomdomain", "name", false},
+	{"objectstorageuser", "username", false},
+	{"objectstoragepolicy", "name", false},
+	{"managedobjectstorage", "uuid", true},
+	// load balancer group
+	{"loadbalancercertificatebundle", "uuid", false},
+	{"loadbalancerfrontendtlsconfig", "uuid", false},
+	{"loadbalancerfrontendrule", "uuid", false},
+	{"loadbalancerfrontend", "uuid", false},
+	{"loadbalancerbackendtlsconfig", "uuid", false},
+	{"loadbalancerbackendmember", "name", false},
+	{"loadbalancerbackend", "uuid", false},
+	{"loadbalancerresolver", "uuid", false},
+	// gateway / network group
+	{"gatewaytunnel", "uuid", false},
+	{"gatewayconnection", "uuid", false},
+	{"gateway", "uuid", false},
+	{"networkpeering", "uuid", false},
+	{"floatingip", "address", true},
+	{"router", "uuid", true},
+	{"network", "uuid", true},
+}
+
+// collectLeakedCRs adds a probe for every managed CR still present in the
+// run namespace, whatever its status. Called from AfterSuite before the
+// sample deletes, so a spec that failed before collectProbes still leaves
+// nothing behind: the CR deletes below trigger the finalizers that perform
+// the real UpCloud deletes, and anything that escaped its CR is caught by
+// the sweeps.
+func collectLeakedCRs() {
+	known := map[string]bool{}
+	for _, p := range probes {
+		known[p.kind+"/"+p.uuid] = true
+	}
+	for _, k := range managedKinds {
+		if k.identField == "" {
+			continue
+		}
+		out, err := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace,
+			"-o", "jsonpath={.items[*].status."+k.identField+"}"))
+		if err != nil {
+			continue // kind not installed in this run, or CRD already gone
+		}
+		for _, ident := range strings.Fields(out) {
+			if ident == "" || known[k.name+"/"+ident] {
+				continue
+			}
+			known[k.name+"/"+ident] = true
+			probes = append(probes, probe{kind: k.name, uuid: ident, fetch: fetchFor(k.name, k.verifiable)})
+			_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s (leak pass)\n", k.name, crName(k.name), ident)
+		}
+	}
+}
+
+// fetchFor returns the Get* call whose 404 proves the resource is gone.
+// For kinds the API cannot confirm individually, waitForGone treats them
+// as gone; the sweeps are the safety net for those.
+func fetchFor(kind string, verifiable bool) func(context.Context, string) error {
+	if !verifiable {
+		return func(context.Context, string) error { return nil }
+	}
+	switch kind {
+	case "router":
+		return func(ctx context.Context, u string) error {
+			_, e := svc.GetRouterDetails(ctx, &upcloudrequest.GetRouterDetailsRequest{UUID: u})
+			return e
+		}
+	case "network":
+		return func(ctx context.Context, u string) error {
+			_, e := svc.GetNetworkDetails(ctx, &upcloudrequest.GetNetworkDetailsRequest{UUID: u})
+			return e
+		}
+	case "floatingip":
+		return func(ctx context.Context, u string) error {
+			_, e := svc.GetIPAddressDetails(ctx, &upcloudrequest.GetIPAddressDetailsRequest{Address: u})
+			return e
+		}
+	case "managedobjectstorage":
+		return func(ctx context.Context, u string) error {
+			_, e := svc.GetManagedObjectStorage(ctx, &upcloudrequest.GetManagedObjectStorageRequest{UUID: u})
+			return e
+		}
+	case "manageddatabase":
+		return func(ctx context.Context, u string) error {
+			_, e := svc.GetManagedDatabase(ctx, &upcloudrequest.GetManagedDatabaseRequest{UUID: u})
+			return e
+		}
+	default:
+		return func(context.Context, string) error { return nil }
+	}
+}
+
+// sweepDetachedFloatingIPs releases floating IPs that escaped their CR: an
+// address is swept only when it is unattached (no server), floating, in the
+// sample zone, and not carried by any collected probe (a probed address is
+// the CR/finalizer path's business and waitForGone verifies it). This
+// cannot release attached or non-floating addresses.
+func sweepDetachedFloatingIPs() {
+	ctx := context.Background()
+	ips, err := svc.GetIPAddresses(ctx)
+	if err != nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "floating IP sweep skipped: %v\n", err)
+		return
+	}
+	probed := map[string]bool{}
+	for _, p := range probes {
+		if p.kind == "floatingip" {
+			probed[p.uuid] = true
+		}
+	}
+	for i := range ips.IPAddresses {
+		ip := &ips.IPAddresses[i]
+		if ip.Zone != sampleZone || ip.ServerUUID != "" || ip.Floating != upcloud.True || probed[ip.Address] {
+			continue
+		}
+		_, _ = fmt.Fprintf(GinkgoWriter, "sweeping detached floating IP %s\n", ip.Address)
+		_ = svc.ReleaseIPAddress(ctx, &upcloudrequest.ReleaseIPAddressRequest{IPAddress: ip.Address})
+	}
+}
+
+// dumpDiagnostics writes everything needed to root-cause a Ready-wait
+// timeout into a temp dir (path recorded in diagDir for the workflow to
+// upload): CR table, full conditions with messages (the reconciler writes
+// the failing API error there), manager logs, and namespace events. Runs
+// in AfterSuite while the kind cluster is still up.
+func dumpDiagnostics() {
+	dir, err := os.MkdirTemp("", "e2e-diagnostics-")
+	if err != nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "diagnostics skipped: %v\n", err)
+		return
+	}
+	diagDir = dir
+
+	appendCmdToFile(filepath.Join(diagDir, "cr-table.txt"),
+		exec.Command("kubectl", "get", managedKindsCSV(), "-n", namespace, "-o", "wide"))
+	// Per-kind condition dump: every field of every condition of every CR,
+	// so the recorded API error message is in the artifact.
+	for _, k := range managedKinds {
+		appendCmdToFile(filepath.Join(diagDir, "conditions-"+k.name+".txt"),
+			exec.Command("kubectl", "get", k.name, "-n", namespace,
+				"-o", "jsonpath={range .items[*]}{.metadata.name}{'\\t'}{.status.conditions}{'\\n'}{end}"))
+	}
+	appendCmdToFile(filepath.Join(diagDir, "manager-logs.txt"),
+		exec.Command("kubectl", "logs", "-l", "control-plane=controller-manager",
+			"-n", operatorNS, "--all-containers=true", "--tail=500"))
+	appendCmdToFile(filepath.Join(diagDir, "events-run-ns.txt"),
+		exec.Command("kubectl", "get", "events", "-n", namespace, "--sort-by=.lastTimestamp"))
+	appendCmdToFile(filepath.Join(diagDir, "events-operator-ns.txt"),
+		exec.Command("kubectl", "get", "events", "-n", operatorNS, "--sort-by=.lastTimestamp"))
+}
+
+// managedKindsCSV renders the kind list for a single kubectl get.
+func managedKindsCSV() string {
+	names := make([]string, len(managedKinds))
+	for i, k := range managedKinds {
+		names[i] = k.name
+	}
+	return strings.Join(names, ",")
+}
+
+// appendCmdToFile runs cmd from the repo root and writes its combined
+// output to path. Diagnostics are best-effort: failures leave a note.
+func appendCmdToFile(path string, cmd *exec.Cmd) {
+	cmd.Dir = repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil && len(out) == 0 {
+		out = []byte(fmt.Sprintf("(command failed: %v)", err))
+	}
+	if writeErr := os.WriteFile(path, out, 0o644); writeErr != nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "diagnostics write failed for %s: %v\n", path, writeErr)
+	}
 }
 
 func waitForControllerReady() {
