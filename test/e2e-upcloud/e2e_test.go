@@ -87,10 +87,14 @@ func resolveRepoRoot() string {
 
 // probe records one UpCloud resource created in this run and how to check
 // whether it still exists, so teardown can verify it is really gone.
+// verifiable marks kinds the API can confirm individually; waitForGone
+// skips the rest (their fetch is a no-op, and a nil error from it is not
+// a 404).
 type probe struct {
-	kind  string
-	uuid  string
-	fetch func(context.Context, string) error // returns the Get* call's error
+	kind       string
+	uuid       string
+	verifiable bool
+	fetch      func(context.Context, string) error // returns the Get* call's error
 }
 
 func TestE2EUpCloud(t *testing.T) {
@@ -292,7 +296,7 @@ func collectProbes() {
 		if err != nil || out == "" {
 			return
 		}
-		probes = append(probes, probe{kind: kind, uuid: out, fetch: fetch})
+		probes = append(probes, probe{kind: kind, uuid: out, verifiable: true, fetch: fetch})
 		_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s\n", kind, name, out)
 	}
 	add("router", "router-sample", "{.status.uuid}",
@@ -369,20 +373,36 @@ func crName(kind string) string {
 	}
 }
 
-// waitForGone polls the real UpCloud API until every collected resource
-// returns a 404.
+// waitForGone polls the real UpCloud API until every collected verifiable
+// resource returns a 404.
 func waitForGone(timeout time.Duration) {
 	ctx := context.Background()
 	Eventually(func() bool {
-		for _, p := range probes {
-			err := p.fetch(ctx, p.uuid)
-			if !upcloudapi.IsNotFound(err) {
-				_, _ = fmt.Fprintf(GinkgoWriter, "%s %s still exists (err=%v)\n", p.kind, p.uuid, err)
-				return false
-			}
+		gone, detail := allProbesGone(ctx)
+		if !gone {
+			_, _ = fmt.Fprintln(GinkgoWriter, detail)
 		}
-		return true
+		return gone
 	}, timeout, 15*time.Second).Should(BeTrue(), "every UpCloud resource from this run should be gone")
+}
+
+// allProbesGone is the waitForGone poll predicate, extracted so it is
+// testable without the Ginkgo suite or an API client. Non-verifiable
+// probes are skipped: their fetch is a no-op that returns nil, and nil is
+// not a 404, so polling them could never pass (run 35237159467 spun the
+// full budget on exactly that). The string names the first verifiable
+// resource still present, for the Ginkgo writer.
+func allProbesGone(ctx context.Context) (bool, string) {
+	for _, p := range probes {
+		if !p.verifiable {
+			continue
+		}
+		err := p.fetch(ctx, p.uuid)
+		if !upcloudapi.IsNotFound(err) {
+			return false, fmt.Sprintf("%s %s still exists (err=%v)", p.kind, p.uuid, err)
+		}
+	}
+	return true, ""
 }
 
 // sweepLabelled deletes any UpCloud network or router still carrying the
@@ -496,15 +516,16 @@ func collectLeakedCRs() {
 				continue
 			}
 			known[k.name+"/"+ident] = true
-			probes = append(probes, probe{kind: k.name, uuid: ident, fetch: fetchFor(k.name, k.verifiable)})
+			probes = append(probes, probe{kind: k.name, uuid: ident, verifiable: k.verifiable, fetch: fetchFor(k.name, k.verifiable)})
 			_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s (leak pass)\n", k.name, crName(k.name), ident)
 		}
 	}
 }
 
 // fetchFor returns the Get* call whose 404 proves the resource is gone.
-// For kinds the API cannot confirm individually, waitForGone treats them
-// as gone; the sweeps are the safety net for those.
+// For kinds the API cannot confirm individually the fetch is a no-op and
+// waitForGone skips the probe entirely (see allProbesGone); the sweeps
+// are the safety net for those kinds.
 func fetchFor(kind string, verifiable bool) func(context.Context, string) error {
 	if !verifiable {
 		return func(context.Context, string) error { return nil }
