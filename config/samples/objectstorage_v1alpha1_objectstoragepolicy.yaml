@@ -17,7 +17,7 @@ spec:
         {
           "Effect": "Allow",
           "Action": ["s3:GetObject"],
-          "Resource": ["arn:upcloud:objectstorage::bucket/*"]
+          "Resource": ["*"]
         }
       ]
     }
