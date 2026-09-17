@@ -244,9 +244,16 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 // deleteAllSamples removes every managed CR in the run namespace by kind,
 // in reverse dependency order. Kind-based rather than sample-file-based so
 // CRs a failed spec created outside the sample set are still deleted.
+//
+// The deletes are non-blocking (--wait=false): a blocking delete parks on
+// the kind's finalizer, and a finalizer that cannot complete until a peer
+// CR is deleted (a network waits on its router UpCloud-side) would block
+// the loop before the peer's delete is ever issued. waitForCRsGone is the
+// single place that waits for finalizer drain.
 func deleteAllSamples() {
 	for _, k := range managedKinds {
-		_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace, "--ignore-not-found=true", "--all=true"))
+		_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
+			"--ignore-not-found=true", "--all=true", "--wait=false"))
 	}
 }
 
@@ -313,15 +320,29 @@ func collectProbes() {
 		})
 }
 
-// waitForCRsGone blocks until every collected CR is removed from the cluster
-// (its finalizer ran, which is what performs the real UpCloud delete).
+// waitForCRsGone blocks until every managed kind has zero CRs left in the
+// run namespace (its finalizer ran, which is what performs the real
+// UpCloud delete). Each poll re-issues the non-blocking deletes: re-deleting
+// a CR that is already terminating is a no-op, but a CR the single delete
+// pass missed (a late-failing spec, or a pass that died mid-loop) gets its
+// deletion request (re)issued here instead of waiting out the clock.
+// Presence is read via jsonpath: `kubectl get <kind>` exits 0 even for an
+// empty list, and a kubectl failure (missing CRD, API blip) would
+// otherwise be indistinguishable from "gone".
 func waitForCRsGone(timeout time.Duration) {
 	Eventually(func() bool {
 		allGone := true
 		for _, k := range managedKinds {
-			_, gerr := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace))
-			if gerr == nil {
-				allGone = false
+			_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
+				"--ignore-not-found=true", "--all=true", "--wait=false"))
+			out, gerr := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace,
+				"-o", "jsonpath={.items[*].metadata.name}"))
+			if gerr != nil {
+				allGone = false // CRD missing or API error: not provably gone
+				continue
+			}
+			if trim(out) != "" {
+				allGone = false // at least one CR is still present
 			}
 		}
 		return allGone
