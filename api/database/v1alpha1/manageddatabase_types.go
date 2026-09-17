@@ -39,7 +39,8 @@ type ManagedDatabaseSpec struct {
 	// +kubebuilder:validation:Enum=pg;mysql;valkey;opensearch
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="type is immutable"
 	Type string `json:"type"`
-	// Plan, for example 3x25.
+	// Plan, for example 1x1xCPU-2GB-25GB (componentised: nodes x CPU x
+	// RAM x storage; list valid values with GET /1.3/database/plans).
 	// +kubebuilder:validation:MinLength=1
 	Plan string `json:"plan"`
 	// Zone, for example fi-hel1. Immutable.

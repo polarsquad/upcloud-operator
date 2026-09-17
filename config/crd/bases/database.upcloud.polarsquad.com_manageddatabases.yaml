@@ -150,7 +150,9 @@ spec:
                 maxItems: 8
                 type: array
               plan:
-                description: Plan, for example 3x25.
+                description: |-
+                  Plan, for example 1x1xCPU-2GB-25GB (componentised: nodes x CPU x
+                  RAM x storage; list valid values with GET /1.3/database/plans).
                 minLength: 1
                 type: string
               powered:

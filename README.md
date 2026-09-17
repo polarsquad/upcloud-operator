@@ -98,7 +98,7 @@ metadata:
   name: app-db
 spec:
   type: pg
-  plan: 3x25
+  plan: 1x1xCPU-2GB-25GB
   zone: fi-hel1
   properties:
     version: "16"
