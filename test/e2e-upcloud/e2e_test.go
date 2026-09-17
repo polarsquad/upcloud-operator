@@ -207,7 +207,11 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		waitReady("router", "router-sample", 5*time.Minute)
 		waitReady("network", "network-sample", 5*time.Minute)
 		waitReady("floatingip", "floatingip-sample", 5*time.Minute)
-		waitReady("managedobjectstorage", "managedobjectstorage-sample", 5*time.Minute)
+		// MOS can sit in UpCloud's setup-checkup state well past 5
+		// minutes (run 35211338876: >5.5m, never reached running before
+		// teardown). Vendor provisioning latency is outside the
+		// operator's control, so this gets the database's 15m budget.
+		waitReady("managedobjectstorage", "managedobjectstorage-sample", 15*time.Minute)
 		waitReady("objectstoragepolicy", "objectstoragepolicy-sample", 5*time.Minute)
 		waitReady("objectstorageuser", "objectstorageuser-sample", 5*time.Minute)
 		waitReady("objectstorageaccesskey", "objectstorageaccesskey-sample", 5*time.Minute)

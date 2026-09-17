@@ -49,17 +49,20 @@ jobs:
           # -timeout overrides Go's 10m default so the alarm can never fire
           # inside AfterSuite, where it would kill the mid-teardown deletes
           # and leak the run's paid resources into the next dispatch. The
-          # suite's worst case is ~85m wall clock (BeforeSuite ~2.5m +
-          # controller-ready 3m + 7 x 5m Ready waits + 15m database Ready +
-          # 20m waitForCRsGone + 5m waitForGone, plus AfterSuite's own
-          # 20m/5m waits on a failed run); 90m covers it with headroom.
+          # suite's worst case is ~90m wall clock (BeforeSuite ~2.5m +
+          # controller-ready 3m + 6 x 5m Ready waits + 15m MOS Ready +
+          # 15m database Ready + 20m waitForCRsGone + 5m waitForGone,
+          # plus AfterSuite's own 20m/5m waits on a failed run); 100m
+          # covers it with headroom. The MOS wait is 15m because
+          # setup-checkup alone has exceeded the old 5m budget (run
+          # 35211338876).
           # -ginkgo.timeout raises Ginkgo's own suite alarm, which defaults
           # to 1h and would otherwise fire before -timeout ever could (run
           # 35182758449 died exactly that way, [TIMEDOUT] at 3600s inside
-          # deleteAllSamples). It must sit above the ~85m worst-case
-          # envelope above and below the 90m Go alarm.
-          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -timeout 90m \
-            -ginkgo.timeout 85m -v -ginkgo.v
+          # deleteAllSamples). It must sit above the ~90m worst-case
+          # envelope above and below the 100m Go alarm.
+          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -timeout 100m \
+            -ginkgo.timeout 95m -v -ginkgo.v
 
       - name: Upload failure diagnostics
         if: failure()
