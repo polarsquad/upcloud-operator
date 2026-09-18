@@ -1,4 +1,12 @@
+<p align="center">
+  <a href="https://upcloud.com/">
+    <img src="docs/assets/upcloud-logo.svg" alt="UpCloud" width="280">
+  </a>
+</p>
+
 # upcloud-operator
+
+Sponsored by [UpCloud](https://upcloud.com/), who provided infrastructure credits and funded real-API end-to-end testing for this project.
 
 A Kubernetes operator for UpCloud hosted products. It exposes namespaced
 CRDs for SDN networks and routers, network gateways, Managed Databases,
@@ -168,14 +176,49 @@ to adjust:
   re-checked for drift against UpCloud. Raise it on accounts with many
   resources, lower it if you want drift caught sooner.
 
+## Verification and testing
+
+The operator is validated across three tiers:
+
+- **Unit and adapter tests**: Every controller and adapter runs unit tests
+  against an in-memory fake API (`internal/upcloudapi/fake/`). Tests verify
+  resource creation, drift reconciliation, status observation, error handling,
+  and deletion idempotency without making calls to live services.
+- **Kind smoke tests (`test/e2e/`)**: Runs in GitHub Actions on every pull
+  request and push to `main`. Deploys the controller manager to a local KinD
+  cluster to verify controller startup, leader election, RBAC bindings,
+  and Prometheus metrics under the Kubernetes restricted pod security profile.
+- **Real UpCloud API end-to-end suite (`test/e2e-upcloud/`)**: Validated
+  against live UpCloud infrastructure in `fi-hel1` (gated behind GitHub
+  Actions `workflow_dispatch` on the `upcloud-e2e` environment with real API
+  credentials funded by UpCloud). The suite provisions a full multi-product
+  resource chain:
+  - SDN Router and private Network with DHCP
+  - Floating IP allocation
+  - Managed Object Storage service, S3 IAM User, S3 Policy document, and
+    S3 Access Key
+  - Managed PostgreSQL Database
+  - Verifies automatic Kubernetes Secret creation for S3 access credentials
+    and database connection URI
+  - Verifies teardown: reverse-dependency deletion driven by Kubernetes
+    finalizers, followed by UpCloud API verification confirming all resources
+    return 404
+
 ## Known limitations (v0.1)
 
 - **Token at rest.** UpCloud offers no OIDC federation, so the operator
   credential is a Secret. Scope it tightly; per-namespace credentials
   are the first planned follow-up.
+- **Database plan naming.** Plan names are componentised shapes
+  (`<nodes>x<cpu>xCPU-<ram>-<storage>`, for example `1x1xCPU-2GB-25GB`).
+  Query `GET /1.3/database/plans` for currently offered shapes per zone.
 - **Free-form database `properties`.** Validated by UpCloud at request
   time, so a typo surfaces as an `UpdateFailed` condition, not an
   admission error. Typed properties per engine are planned.
+- **Object storage policy ARNs.** UpCloud validates policy document
+  `Resource` entries against standard S3 ARNs (`arn:aws:s3:::<bucket>`,
+  `arn:aws:s3:::<bucket>/*`, or `*`). Custom ARN namespaces are rejected
+  with status 400.
 - **Undetectable secrets.** Tunnel PSKs and certificate private keys are
   never echoed by the API; rotating the backing Secret does not trigger a
   re-apply on its own. Bump `spec.rotationToken` on a GatewayTunnel or
@@ -185,6 +228,9 @@ to adjust:
   the CRDs enforce it at admission. The one exception is GatewayTunnel:
   any spec change deletes and recreates the tunnel (the API has no
   tunnel modify), which re-establishes the VPN.
+- **Floating IP PTR clearing.** `spec.ptrRecord` can be set, but the
+  UpCloud API omits empty values on update. Clearing a PTR record requires
+  deleting and recreating the FloatingIP.
 - **Adoption.** Networks, Routers, Gateways, Managed Databases, Managed
   Object Storage and Network Peerings are adopted by the `k8s-uid` label.
   Children (users, access keys, buckets, policies, custom domains,
