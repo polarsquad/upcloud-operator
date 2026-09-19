@@ -138,6 +138,40 @@ admin, with a UI):
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
 
+### Teardown order
+
+`AfterSuite` removes what the run created, even when a spec failed halfway
+through. Every step runs whatever an earlier one did: a wait that times out
+is recorded and the suite is failed once, at the end, with everything that
+was recorded.
+
+1. Collect the UpCloud identities of every managed CR still present.
+2. Dump diagnostics while the kind cluster is still up.
+3. Delete all CRs without blocking; the operator's finalizers perform the
+   real UpCloud deletes.
+4. Wait for the CRs to disappear (up to 20 minutes). Steps 3 and 4 are
+   skipped when setup failed before the CRDs were installed.
+5. Sweep leftover networks, routers and floating IPs directly through the
+   UpCloud API. This is a cost safety net, not part of what is tested, so
+   it never hides an operator bug: each resource it has to remove is
+   reported with the state of its CR (still present with its finalizers
+   and Ready condition, or already gone) and the sweep's own delete error,
+   and the suite fails at the end. Fix the operator's Delete, not the sweep.
+6. Verify through the UpCloud API that everything is gone.
+7. Delete the kind cluster, which takes the operator, CRDs and namespaces
+   with it.
+
+The suite cannot clean up when its own process is killed (a timeout alarm
+or a cancelled run). So the workflow ends with an `always()` step,
+`go run ./test/e2e-upcloud/cleanup`, that keeps no state from the suite
+and deletes every managed database, managed object storage, router and
+network labelled `managed-by=upcloud-operator`, plus detached floating IPs
+in the sample zone. It retries for up to 15 minutes, because the services
+delete asynchronously and a network cannot go until its router has, and it
+fails the job if anything remains. Selecting by label alone is only safe
+because the UpCloud account is dedicated to this suite; do not run the
+workflow against an account that holds other operator-managed resources.
+
 ## Known operational notes
 
 - The credentials Secret is the only secret the operator reads. Scope
