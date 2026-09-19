@@ -155,13 +155,17 @@ var _ = AfterSuite(func() {
 	if svc == nil {
 		return
 	}
-	// Best-effort teardown that must not itself fail the suite: always
-	// remove the real UpCloud resources and the kind cluster, even if a
-	// spec failed halfway through. The collection pass runs BEFORE the
-	// sample deletes: a spec that dies before collectProbes (the normal
-	// failure path) leaves no probes, and without this pass the sweeps and
-	// the gone-verification would iterate an empty list while real
-	// resources from the failed spec are still being provisioned.
+	// Every step runs whatever an earlier one did. A failed Eventually
+	// would abort this node and skip the sweeps and the cluster teardown,
+	// so the waits record their failure and the suite is failed at the end.
+	// The collection pass runs BEFORE the sample deletes: a spec that dies
+	// before collectProbes leaves no probes, and without this pass the
+	// sweeps and the gone-verification would iterate an empty list while
+	// real resources from the failed spec are still being provisioned.
+	var failures []string
+	record := NewGomega(func(message string, _ ...int) {
+		failures = append(failures, message)
+	})
 	By("collecting identities from every managed CR still in the run namespace")
 	collectLeakedCRs()
 	By("dumping diagnostics while the cluster is still up")
@@ -169,13 +173,13 @@ var _ = AfterSuite(func() {
 	By("deleting the applied samples in reverse dependency order")
 	deleteAllSamples()
 	By("waiting for the CRs to be removed (finalizers drive the real delete)")
-	waitForCRsGone(20 * time.Minute)
+	pollCRsGone(record, 20*time.Minute)
 	By("sweeping any leftover UpCloud resource labelled by this run")
 	sweepLabelled()
 	By("sweeping any detached floating IP left in the sample zone")
 	sweepDetachedFloatingIPs()
 	By("verifying the UpCloud API confirms everything is gone")
-	waitForGone(5 * time.Minute)
+	pollGone(record, 5*time.Minute)
 	By("undeploying the operator and uninstalling the CRDs")
 	_, _ = runCmd(exec.Command("make", "undeploy"))
 	_, _ = runCmd(exec.Command("make", "uninstall", "ignore-not-found=true"))
@@ -183,6 +187,10 @@ var _ = AfterSuite(func() {
 	_, _ = runCmd(exec.Command("kubectl", "delete", "ns", operatorNS, "--ignore-not-found=true"))
 	By("deleting the kind cluster")
 	_, _ = runCmd(exec.Command("kind", "delete", "cluster", "--name", kindCluster))
+
+	if len(failures) > 0 {
+		Fail("teardown did not complete cleanly:\n" + strings.Join(failures, "\n"))
+	}
 })
 
 var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
@@ -338,7 +346,13 @@ func collectProbes() {
 // empty list, and a kubectl failure (missing CRD, API blip) would
 // otherwise be indistinguishable from "gone".
 func waitForCRsGone(timeout time.Duration) {
-	Eventually(func() bool {
+	pollCRsGone(Default, timeout)
+}
+
+// pollCRsGone is waitForCRsGone against a caller-chosen Gomega, so the
+// AfterSuite can record a timeout and carry on with its sweeps.
+func pollCRsGone(g Gomega, timeout time.Duration) {
+	g.Eventually(func() bool {
 		allGone := true
 		for _, k := range managedKinds {
 			_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
@@ -376,8 +390,13 @@ func crName(kind string) string {
 // waitForGone polls the real UpCloud API until every collected verifiable
 // resource returns a 404.
 func waitForGone(timeout time.Duration) {
+	pollGone(Default, timeout)
+}
+
+// pollGone is waitForGone against a caller-chosen Gomega (see pollCRsGone).
+func pollGone(g Gomega, timeout time.Duration) {
 	ctx := context.Background()
-	Eventually(func() bool {
+	g.Eventually(func() bool {
 		gone, detail := allProbesGone(ctx)
 		if !gone {
 			_, _ = fmt.Fprintln(GinkgoWriter, detail)

@@ -138,6 +138,23 @@ admin, with a UI):
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
 
+### Teardown order
+
+`AfterSuite` always removes what the run created, even when a spec failed
+halfway through. Every step runs whatever an earlier one did; a step that
+times out is recorded and the suite is failed once, at the end, with all
+recorded failures:
+
+1. Collect the UpCloud identities of every managed CR still present.
+2. Dump diagnostics while the kind cluster is still up.
+3. Delete all CRs without blocking; the operator's finalizers perform the
+   real UpCloud deletes.
+4. Wait for the CRs to disappear (up to 20 minutes).
+5. Sweep leftover networks, routers and floating IPs directly through the
+   UpCloud API. This is a cost safety net, not part of what is tested.
+6. Verify through the UpCloud API that everything is gone.
+7. Undeploy the operator and delete the kind cluster.
+
 ## Known operational notes
 
 - The credentials Secret is the only secret the operator reads. Scope
