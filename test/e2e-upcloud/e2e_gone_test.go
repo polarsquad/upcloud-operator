@@ -21,7 +21,9 @@ package e2e_upcloud
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -94,4 +96,36 @@ func TestAllProbesGone(t *testing.T) {
 			t.Fatal("mixed probes passed while a verifiable resource is still present")
 		}
 	})
+}
+
+// TestCRStateFor guards the wording a sweep report gives for a leftover
+// resource: the CR's state is what points a developer at the operator's
+// Delete, so it must not silently fall through.
+func TestCRStateFor(t *testing.T) {
+	rows := "uid-a\trouter-a\t\t[\"upcloud.io/finalizer\"]\tDeleteFailed\tconflict\n" +
+		"uid-b\trouter-b\t2026-09-19T10:00:00Z\t[]\tDeleting\tin progress\n"
+
+	if got := crStateFor(rows, "uid-a"); !strings.Contains(got, "router-a") || !strings.Contains(got, "DeleteFailed: conflict") {
+		t.Fatalf("live CR not described: %s", got)
+	}
+	if got := crStateFor(rows, "uid-b"); !strings.Contains(got, "2026-09-19T10:00:00Z") {
+		t.Fatalf("terminating CR lost its deletionTimestamp: %s", got)
+	}
+	if got := crStateFor(rows, "uid-missing"); !strings.Contains(got, "already gone") {
+		t.Fatalf("missing CR not reported as gone: %s", got)
+	}
+	if got := crStateFor("", "uid-a"); !strings.Contains(got, "already gone") {
+		t.Fatalf("empty list not reported as gone: %s", got)
+	}
+}
+
+func TestLeftoverMessage(t *testing.T) {
+	msg := leftoverMessage("network", "n-1", "its CR is already gone", nil)
+	if !strings.Contains(msg, "network n-1") || strings.Contains(msg, "also failed") {
+		t.Fatalf("unexpected message: %s", msg)
+	}
+	msg = leftoverMessage("router", "r-1", "its CR is already gone", errors.New("409"))
+	if !strings.Contains(msg, "also failed: 409") {
+		t.Fatalf("delete error dropped: %s", msg)
+	}
 }
