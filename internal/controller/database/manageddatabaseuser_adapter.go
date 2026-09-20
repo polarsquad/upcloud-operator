@@ -221,7 +221,7 @@ func (a *ManagedDatabaseUserAdapter) Update(ctx context.Context, u *databasev1al
 // Delete implements reconciler.Adapter. Deleting the primary user is
 // refused; a gone service (404) counts as deleted.
 func (a *ManagedDatabaseUserAdapter) Delete(ctx context.Context, u *databasev1alpha1.ManagedDatabaseUser) error {
-	if u.Status.ServiceUUID == "" {
+	if u.Status.ServiceUUID == "" || u.Status.Username == "" {
 		return nil
 	}
 	if u.Status.Type == string(upcloud.ManagedDatabaseUserTypePrimary) {
@@ -234,6 +234,8 @@ func (a *ManagedDatabaseUserAdapter) Delete(ctx context.Context, u *databasev1al
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return reconciler.ErrPending
 	default:
 		return fmt.Errorf("delete managed database user: %w", err)
 	}

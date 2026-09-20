@@ -92,7 +92,7 @@ func (a *LogicalDatabaseAdapter) Update(ctx context.Context, d *databasev1alpha1
 // Delete implements reconciler.Adapter. Idempotent: a gone logical database
 // or a gone service both count as deleted.
 func (a *LogicalDatabaseAdapter) Delete(ctx context.Context, d *databasev1alpha1.ManagedDatabaseLogicalDatabase) error {
-	if d.Status.ServiceUUID == "" {
+	if d.Status.ServiceUUID == "" || d.Status.Name == "" {
 		return nil
 	}
 	err := a.API.DeleteManagedDatabaseLogicalDatabase(ctx, &request.DeleteManagedDatabaseLogicalDatabaseRequest{
@@ -102,6 +102,8 @@ func (a *LogicalDatabaseAdapter) Delete(ctx context.Context, d *databasev1alpha1
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return reconciler.ErrPending
 	default:
 		return fmt.Errorf("delete managed database logical database: %w", err)
 	}

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -211,6 +212,7 @@ func TestManagedDatabaseUserDeletePrimaryRefused(t *testing.T) {
 	admin.Status = databasev1alpha1.ManagedDatabaseUserStatus{ServiceUUID: mdbParent, Username: upadminUser, Type: "primary"}
 	err := a.Delete(context.Background(), admin)
 	g.Expect(err).To(HaveOccurred())
+	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeFalse())
 	g.Expect(err.Error()).To(ContainSubstring("primary"))
 	g.Expect(api.Calls).NotTo(ContainElement("DeleteManagedDatabaseUser"))
 }

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -236,7 +237,7 @@ func TestManagedDatabaseDeleteWithTerminationProtectionFails(t *testing.T) {
 
 	err := a.Delete(ctx, md)
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err).NotTo(MatchError(reconciler.ErrPending))
+	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeFalse())
 	g.Expect(err.Error()).To(ContainSubstring("termination"))
 }
 
@@ -249,7 +250,7 @@ func TestManagedDatabaseDeleteIsPendingUntilGone(t *testing.T) {
 	g.Expect(a.Create(ctx, md)).To(Succeed())
 
 	err := a.Delete(ctx, md)
-	g.Expect(err).To(MatchError(reconciler.ErrPending))
+	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeTrue(), "Delete returned %v", err)
 	g.Expect(api.Databases).NotTo(BeEmpty())
 
 	g.Expect(a.Delete(ctx, md)).To(Succeed())

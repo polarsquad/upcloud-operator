@@ -68,8 +68,12 @@ func TestLogicalDatabaseDeleteIdempotent(t *testing.T) {
 	ld := newLogicalDB()
 	ld.Status.ServiceUUID = mdbParent
 
+	g.Expect(a.Create(context.Background(), ld)).To(Succeed())
+	g.Expect(api.LogicalDBs[mdbParent]).To(HaveLen(1))
+
 	// First delete removes it.
 	g.Expect(a.Delete(context.Background(), ld)).To(Succeed())
+	g.Expect(api.LogicalDBs[mdbParent]).To(BeEmpty())
 	// Second delete is a no-op (already gone).
 	g.Expect(a.Delete(context.Background(), ld)).To(Succeed())
 	g.Expect(api.LogicalDBs[mdbParent]).To(BeEmpty())

@@ -243,6 +243,10 @@ func (a *ManagedDatabaseAdapter) Delete(ctx context.Context, d *databasev1alpha1
 		return reconciler.ErrPending
 	case upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err) && !db.TerminationProtection:
+		// Dependency/state conflicts can clear on retry. Termination
+		// protection instead needs user intervention and remains an error.
+		return reconciler.ErrPending
 	default:
 		return fmt.Errorf("delete managed database: %w", err)
 	}
