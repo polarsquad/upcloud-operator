@@ -125,6 +125,8 @@ func (a *LoadBalancerFrontendRuleAdapter) Delete(ctx context.Context, r *lb.Load
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete load balancer frontend rule: %w", err)
 	}

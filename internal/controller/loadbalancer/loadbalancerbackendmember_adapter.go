@@ -146,6 +146,8 @@ func (a *LoadBalancerBackendMemberAdapter) Delete(ctx context.Context, m *lb.Loa
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete load balancer backend member: %w", err)
 	}

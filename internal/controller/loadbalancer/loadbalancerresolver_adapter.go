@@ -130,6 +130,8 @@ func (a *LoadBalancerResolverAdapter) Delete(ctx context.Context, r *lb.LoadBala
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete load balancer resolver: %w", err)
 	}

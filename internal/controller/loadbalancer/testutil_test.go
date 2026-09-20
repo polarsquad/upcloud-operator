@@ -23,20 +23,22 @@ import (
 // Shared test constants. Kept in one place so the goconst linter (which
 // counts occurrences per package) does not flag repeated literals.
 const (
-	testNS          = "default"
-	parentName      = "svc"
-	parentUUID      = "lb-0001"
-	testPlan        = "0-4"
-	testZone        = "fi-hel1"
-	readyReason     = "Available"
-	testReadyType   = "Ready"
-	publicType      = "public"
-	bundleType      = "manual"
-	testModeHTTP    = "http"
-	testBackendAPI  = "api"
-	testBackendAlt  = "be2"
-	testMethodExact = "exact"
-	testAPIPath     = "/api"
+	testNS           = "default"
+	parentName       = "svc"
+	parentUUID       = "lb-0001"
+	testPlan         = "0-4"
+	testZone         = "fi-hel1"
+	readyReason      = "Available"
+	testReadyType    = "Ready"
+	publicType       = "public"
+	bundleType       = "manual"
+	testModeHTTP     = "http"
+	testBackendAPI   = "api"
+	testBackendAlt   = "be2"
+	testMethodExact  = "exact"
+	testAPIPath      = "/api"
+	statusNameField  = "Name"
+	serviceUUIDField = "ServiceUUID"
 )
 
 // newLBClient returns a fake client with the corev1, network and loadbalancer

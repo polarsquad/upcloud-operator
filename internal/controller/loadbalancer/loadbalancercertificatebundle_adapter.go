@@ -193,6 +193,8 @@ func (a *LoadBalancerCertificateBundleAdapter) Delete(ctx context.Context, b *lb
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete certificate bundle: %w", err)
 	}

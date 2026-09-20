@@ -142,6 +142,8 @@ func (a *LoadBalancerFrontendTLSConfigAdapter) Delete(ctx context.Context, c *lb
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete load balancer frontend TLS config: %w", err)
 	}
