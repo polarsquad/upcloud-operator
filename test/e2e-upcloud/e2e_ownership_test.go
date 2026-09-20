@@ -15,20 +15,28 @@ import (
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
+const ownershipNetworkKind = "network"
+
 func TestCollectRunIdentities(t *testing.T) {
 	savedProbes, savedRun := probes, runCmd
 	t.Cleanup(func() { probes, runCmd = savedProbes, savedRun })
 	const fixture = `{"apiVersion":"v1","kind":"List","items":[
-		{"apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network","metadata":{"name":"ready","uid":"cr-ready"},"status":{"uuid":"cloud-ready"}},
-		{"apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network","metadata":{"name":"creating-one","uid":"cr-creating-one"}},
-		{"apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network","metadata":{"name":"creating-two","uid":"cr-creating-two"},"status":{"uuid":""}}
+		{
+		 "apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network",
+		 "metadata":{"name":"ready","uid":"cr-ready"},"status":{"uuid":"cloud-ready"}},
+		{
+		 "apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network",
+		 "metadata":{"name":"creating-one","uid":"cr-creating-one"}},
+		{
+		 "apiVersion":"network.upcloud.polarsquad.com/v1alpha1","kind":"Network",
+		 "metadata":{"name":"creating-two","uid":"cr-creating-two"},"status":{"uuid":""}}
 	]}`
 	runCmd = func(cmd *exec.Cmd) (string, error) {
 		if len(cmd.Args) != 7 || cmd.Args[1] != "get" || cmd.Args[3] != "-n" ||
 			cmd.Args[4] != namespace || cmd.Args[5] != "-o" || cmd.Args[6] != "json" {
 			return "", fmt.Errorf("unexpected collection command: %v", cmd.Args)
 		}
-		if cmd.Args[2] == "network" {
+		if cmd.Args[2] == ownershipNetworkKind {
 			return fixture, nil
 		}
 		return `{"apiVersion":"v1","kind":"List","items":[]}`, nil
@@ -97,7 +105,7 @@ func TestSweepRunOwnership(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			probes = []probe{{kind: "network", uuid: cloudID, crUID: tc.knownUID}}
+			probes = []probe{{kind: ownershipNetworkKind, uuid: cloudID, crUID: tc.knownUID}}
 			api := fake.NewNetworkAPI()
 			labels := []upcloud.Label{
 				{Key: upcloudapi.LabelManagedBy, Value: tc.manager},

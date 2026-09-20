@@ -323,22 +323,6 @@ func waitForCRsGone(timeout time.Duration) {
 	}, timeout, 10*time.Second).Should(BeTrue(), "all CRs should be removed from the cluster")
 }
 
-// crName maps a kind to the sample object name in the run namespace.
-func crName(kind string) string {
-	switch kind {
-	case "router":
-		return "router-sample"
-	case "network":
-		return "network-sample"
-	case "managedobjectstorage":
-		return "managedobjectstorage-sample"
-	case "manageddatabase":
-		return "manageddatabase-sample"
-	default:
-		return kind + "-sample"
-	}
-}
-
 // waitForGone polls the real UpCloud API until every collected verifiable
 // resource returns a 404.
 func waitForGone(timeout time.Duration) {

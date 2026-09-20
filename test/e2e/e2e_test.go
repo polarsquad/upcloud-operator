@@ -48,7 +48,8 @@ const metricsRoleBindingName = "uck-metrics-binding"
 // cleanupMetricsBinding removes the cluster-scoped object even when a spec
 // failed before creating it. The runner is injectable for credential-free tests.
 func cleanupMetricsBinding(run func(*exec.Cmd) (string, error)) error {
-	_, err := run(exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found=true"))
+	_, err := run(exec.Command("kubectl", "delete", "clusterrolebinding",
+		metricsRoleBindingName, "--ignore-not-found=true"))
 	return err
 }
 
