@@ -62,6 +62,14 @@ vet: ## Run go vet against code.
 .PHONY: test
 test: manifests generate fmt vet setup-envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell "$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	$(MAKE) test-e2e-helpers
+
+# Exercise harness helpers, never the cluster or real-API entrypoints.
+# Clear credentials as a second guard against accidental real-API execution.
+.PHONY: test-e2e-helpers
+test-e2e-helpers:
+	UPCLOUD_TOKEN= UPCLOUD_USERNAME= UPCLOUD_PASSWORD= go test -tags=e2e_upcloud ./test/e2e-upcloud/ -skip '^TestE2EUpCloud$$'
+	UPCLOUD_TOKEN= UPCLOUD_USERNAME= UPCLOUD_PASSWORD= go test -tags=e2e ./test/e2e/ -skip '^TestE2E$$'
 
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.
 # The default setup assumes Kind is pre-installed and builds/loads the Manager Docker image locally.

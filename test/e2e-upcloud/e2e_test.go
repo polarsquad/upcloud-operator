@@ -46,8 +46,6 @@ import (
 
 const (
 	operatorNS = "uck-system"
-	managedBy  = "uck"
-	uidLabel   = "k8s-uid"
 	// sampleZone is the zone the samples allocate networks and floating
 	// IPs in; the detached-floating-IP sweep only releases addresses in it.
 	sampleZone = "fi-hel1"
@@ -436,7 +434,7 @@ func sweepLabelled() {
 
 func hasManagedBy(labels []upcloud.Label) bool {
 	for _, l := range labels {
-		if l.Key == managedBy {
+		if l.Key == upcloudapi.LabelManagedBy && l.Value == upcloudapi.ManagedByValue {
 			return true
 		}
 	}
@@ -445,7 +443,7 @@ func hasManagedBy(labels []upcloud.Label) bool {
 
 func uidOf(labels []upcloud.Label) string {
 	for _, l := range labels {
-		if l.Key == uidLabel {
+		if l.Key == upcloudapi.LabelUID {
 			return l.Value
 		}
 	}
