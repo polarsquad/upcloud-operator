@@ -187,6 +187,21 @@ func TestGatewayConnectionDeleteContract(t *testing.T) {
 	})
 }
 
+// A populated child UUID with a missing parent identity must not reach the
+// API: the request coordinates would be incomplete.
+func TestGatewayConnectionDeleteEmptyParentIdentity(t *testing.T) {
+	api := fake.NewGatewayAPI()
+	a := &GatewayConnectionAdapter{API: api}
+	c := &networkv1alpha1.GatewayConnection{}
+	c.Status.UUID = testConnectionUUID
+	if err := a.Delete(context.Background(), c); err != nil {
+		t.Fatalf("empty gateway identity must delete without API calls: %v", err)
+	}
+	if len(api.Calls) != 0 {
+		t.Fatalf("API was called with incomplete coordinates: %v", api.Calls)
+	}
+}
+
 func TestGatewayTunnelDeleteContract(t *testing.T) {
 	testDeleteContract(t, func() deleteFixture {
 		api := fake.NewGatewayAPI()
@@ -209,6 +224,29 @@ func TestGatewayTunnelDeleteContract(t *testing.T) {
 			calls:         &api.Calls, failNext: &api.FailNext, method: "DeleteGatewayConnectionTunnel",
 		}
 	})
+}
+
+func TestGatewayTunnelDeleteEmptyParentIdentity(t *testing.T) {
+	api := fake.NewGatewayAPI()
+	a := &GatewayTunnelAdapter{API: api}
+	for name, clear := range map[string]func(t *networkv1alpha1.GatewayTunnel){
+		"gateway":    func(t *networkv1alpha1.GatewayTunnel) { t.Status.GatewayUUID = "" },
+		"connection": func(t *networkv1alpha1.GatewayTunnel) { t.Status.ConnectionUUID = "" },
+	} {
+		tun := &networkv1alpha1.GatewayTunnel{}
+		tun.Status.GatewayUUID = testGatewayUUID
+		tun.Status.ConnectionUUID = testConnectionUUID
+		tun.Status.UUID = "delete-tunnel"
+		clear(tun)
+		t.Run(name, func(t *testing.T) {
+			if err := a.Delete(context.Background(), tun); err != nil {
+				t.Fatalf("empty parent identity must delete without API calls: %v", err)
+			}
+			if len(api.Calls) != 0 {
+				t.Fatalf("API was called with incomplete coordinates: %v", api.Calls)
+			}
+		})
+	}
 }
 
 func TestNetworkPeeringDeleteContract(t *testing.T) {

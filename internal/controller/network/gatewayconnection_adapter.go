@@ -132,7 +132,7 @@ func (a *GatewayConnectionAdapter) Update(ctx context.Context, c *networkv1alpha
 
 // Delete implements reconciler.Adapter.
 func (a *GatewayConnectionAdapter) Delete(ctx context.Context, c *networkv1alpha1.GatewayConnection) error {
-	if c.Status.UUID == "" {
+	if c.Status.UUID == "" || c.Status.GatewayUUID == "" {
 		return nil
 	}
 	err := a.API.DeleteGatewayConnection(ctx, &request.DeleteGatewayConnectionRequest{
