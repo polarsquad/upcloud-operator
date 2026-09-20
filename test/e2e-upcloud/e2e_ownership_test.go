@@ -105,7 +105,7 @@ func TestSweepRunOwnership(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			probes = []probe{{kind: ownershipNetworkKind, uuid: cloudID, crUID: tc.knownUID}}
+			probes = []probe{{kind: ownershipNetworkKind, uuid: cloudID, crUID: tc.knownUID, verifiable: true}}
 			api := fake.NewNetworkAPI()
 			labels := []upcloud.Label{
 				{Key: upcloudapi.LabelManagedBy, Value: tc.manager},

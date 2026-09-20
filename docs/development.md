@@ -253,6 +253,19 @@ cancelling a run mid-teardown would leak its paid resources. GitHub keeps
 only one pending run per group, so a third dispatch replaces the queued
 second one.
 
+### Probe verifiability
+
+A `probe` is only polled by `waitForGone` when its `verifiable` field is
+true. The zero value is false, so a probe built as a struct literal is
+skipped by the gone-verification. Set `verifiable: true` explicitly on any
+probe that must be checked against the API, and give it a real `fetch`.
+Tests that only exercise the sweeps may leave it unset, but set it when the
+probe stands in for a resource the suite should prove is gone.
+
+Whether a real-API run passes teardown after the #45 fix is not recorded
+here. Coverage of the remaining kinds and the real-API confirmation are
+tracked in #67.
+
 ### Real-API e2e timeouts
 
 The suite's worst case is about 110.5m wall clock: BeforeSuite 2.5m,
