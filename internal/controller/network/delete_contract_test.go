@@ -187,7 +187,6 @@ func TestGatewayConnectionDeleteContract(t *testing.T) {
 	})
 }
 
-<<<<<<< HEAD
 // A populated child UUID with a missing parent identity must not reach the
 // API: the request coordinates would be incomplete.
 func TestGatewayConnectionDeleteEmptyParentIdentity(t *testing.T) {
@@ -203,8 +202,6 @@ func TestGatewayConnectionDeleteEmptyParentIdentity(t *testing.T) {
 	}
 }
 
-=======
->>>>>>> a97d306 (test(network): cover all adapter deletion contracts)
 func TestGatewayTunnelDeleteContract(t *testing.T) {
 	testDeleteContract(t, func() deleteFixture {
 		api := fake.NewGatewayAPI()
@@ -229,7 +226,6 @@ func TestGatewayTunnelDeleteContract(t *testing.T) {
 	})
 }
 
-<<<<<<< HEAD
 func TestGatewayTunnelDeleteEmptyParentIdentity(t *testing.T) {
 	api := fake.NewGatewayAPI()
 	a := &GatewayTunnelAdapter{API: api}
@@ -253,8 +249,6 @@ func TestGatewayTunnelDeleteEmptyParentIdentity(t *testing.T) {
 	}
 }
 
-=======
->>>>>>> a97d306 (test(network): cover all adapter deletion contracts)
 func TestNetworkPeeringDeleteContract(t *testing.T) {
 	testDeleteContract(t, func() deleteFixture {
 		api := fake.NewNetworkAPI()
