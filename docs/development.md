@@ -138,6 +138,24 @@ admin, with a UI):
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
 
+### Real-API e2e timeouts
+
+The suite's worst case is about 100.5m wall clock: BeforeSuite 2.5m,
+controller-ready 3m, six 5m Ready waits, a 25m Managed Object Storage
+Ready wait, a 15m database Ready wait, then 20m `waitForCRsGone` and 5m
+`waitForGone`. The two teardown waits run either in the spec (success)
+or in AfterSuite (failed spec), never both, so they are counted once.
+
+Two alarms must stay ordered above that: `-ginkgo.timeout 115m` (Ginkgo's
+own alarm, default 1h) below `-timeout 120m` (Go's alarm, default 10m).
+If either fires inside teardown it kills the deletes and leaks the run's
+paid resources into the next dispatch.
+
+The Managed Object Storage budget is 25m because `setup-checkup` is
+slow: runs 35214495324 and 35271990226 put it at roughly 13 to 15m,
+which a 15m budget only just cleared. Tighten it once more runs record
+the checkup duration.
+
 ## Known operational notes
 
 - The credentials Secret is the only secret the operator reads. Scope
