@@ -69,6 +69,10 @@ the same group.
    `StateOverride` / `FailNext` behavior as its siblings. The real
    `*service.Service` already satisfies the group interface; the fake
    only needs to be behaviorally honest (409s, 404s, label filters).
+   Add a validation to the fake when the real API rejected a value a
+   test could not catch: the object storage fake rejects policy
+   `Resource` values in the invented `arn:upcloud:` namespace with 400,
+   and a test applies the policy sample through it.
 
 5. **Narrow interface.** If the kind needs a method the group interface
    does not have, add it to `internal/upcloudapi/<group>.go` and keep
