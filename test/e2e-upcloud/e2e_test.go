@@ -21,6 +21,7 @@ package e2e_upcloud
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,6 +35,7 @@ import (
 	upcloudsvc "github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/service"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 )
@@ -59,6 +61,7 @@ var (
 	svc          *upcloudsvc.Service
 	probes       []probe
 	repoRoot     string
+	runCmd       = runCommand
 	// diagDir collects diagnostics for upload on failure. Created lazily
 	// by dumpDiagnostics; empty until then.
 	diagDir string
@@ -91,6 +94,7 @@ func resolveRepoRoot() string {
 type probe struct {
 	kind       string
 	uuid       string
+	crUID      string // Kubernetes identity, distinct from the UpCloud identity.
 	verifiable bool
 	fetch      func(context.Context, string) error // returns the Get* call's error
 }
@@ -169,7 +173,7 @@ var _ = AfterSuite(func() {
 	By("waiting for the CRs to be removed (finalizers drive the real delete)")
 	waitForCRsGone(20 * time.Minute)
 	By("sweeping any leftover UpCloud resource labelled by this run")
-	sweepLabelled()
+	sweepLabelled(svc)
 	By("sweeping any detached floating IP left in the sample zone")
 	sweepDetachedFloatingIPs()
 	By("verifying the UpCloud API confirms everything is gone")
@@ -284,46 +288,10 @@ stringData:
 `, operatorNS, operatorNS, os.Getenv("UPCLOUD_TOKEN"))
 }
 
-// collectProbes records each UpCloud identity created by this run, using the
-// status UUIDs the operator wrote. Anything it cannot find is skipped (the
-// corresponding resource may not have finished provisioning).
+// collectProbes uses the same run-scoped collection as failure teardown.
+// This preserves CR UIDs separately from cloud identities in both paths.
 func collectProbes() {
-	add := func(kind, name, jsonpath string, fetch func(context.Context, string) error) {
-		out, err := runCmd(exec.Command("kubectl", "get", kind, name, "-n", namespace, "-o", jsonpath))
-		out = trim(out)
-		if err != nil || out == "" {
-			return
-		}
-		probes = append(probes, probe{kind: kind, uuid: out, verifiable: true, fetch: fetch})
-		_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s\n", kind, name, out)
-	}
-	add("router", "router-sample", "{.status.uuid}",
-		func(ctx context.Context, u string) error {
-			_, e := svc.GetRouterDetails(ctx, &upcloudrequest.GetRouterDetailsRequest{UUID: u})
-			return e
-		})
-	add("network", "network-sample", "{.status.uuid}",
-		func(ctx context.Context, u string) error {
-			_, e := svc.GetNetworkDetails(ctx, &upcloudrequest.GetNetworkDetailsRequest{UUID: u})
-			return e
-		})
-	// A floating IP is addressed by its IP, not a UUID; the status.address
-	// is the identity and the probe fetch must return 404 once released.
-	add("floatingip", "floatingip-sample", "{.status.address}",
-		func(ctx context.Context, u string) error {
-			_, e := svc.GetIPAddressDetails(ctx, &upcloudrequest.GetIPAddressDetailsRequest{Address: u})
-			return e
-		})
-	add("managedobjectstorage", "managedobjectstorage-sample", "{.status.uuid}",
-		func(ctx context.Context, u string) error {
-			_, e := svc.GetManagedObjectStorage(ctx, &upcloudrequest.GetManagedObjectStorageRequest{UUID: u})
-			return e
-		})
-	add("manageddatabase", "manageddatabase-sample", "{.status.uuid}",
-		func(ctx context.Context, u string) error {
-			_, e := svc.GetManagedDatabase(ctx, &upcloudrequest.GetManagedDatabaseRequest{UUID: u})
-			return e
-		})
+	collectLeakedCRs()
 }
 
 // waitForCRsGone blocks until every managed kind has zero CRs left in the
@@ -406,27 +374,37 @@ func allProbesGone(ctx context.Context) (bool, string) {
 // sweepLabelled deletes any UpCloud network or router still carrying the
 // operator's managed-by label with a k8s-uid this run created (an orphan
 // left behind, for example by a crash between create and finalizer delete).
-func sweepLabelled() {
+type networkSweeper interface {
+	GetRouters(context.Context, ...upcloudrequest.QueryFilter) (*upcloud.Routers, error)
+	DeleteRouter(context.Context, *upcloudrequest.DeleteRouterRequest) error
+	GetNetworks(context.Context, ...upcloudrequest.QueryFilter) (*upcloud.Networks, error)
+	DeleteNetwork(context.Context, *upcloudrequest.DeleteNetworkRequest) error
+}
+
+func sweepLabelled(api networkSweeper) {
 	ctx := context.Background()
 	known := map[string]bool{}
 	for _, p := range probes {
-		known[p.uuid] = true
-	}
-	if nets, err := svc.GetNetworks(ctx); err == nil {
-		for i := range nets.Networks {
-			n := &nets.Networks[i]
-			if hasManagedBy(n.Labels) && known[uidOf(n.Labels)] {
-				_, _ = fmt.Fprintf(GinkgoWriter, "sweeping leftover network %s\n", n.UUID)
-				_ = svc.DeleteNetwork(ctx, &upcloudrequest.DeleteNetworkRequest{UUID: n.UUID})
-			}
+		if p.crUID != "" {
+			known[p.crUID] = true
 		}
 	}
-	if rts, err := svc.GetRouters(ctx); err == nil {
+	// UpCloud refuses network deletion while its router still exists.
+	if rts, err := api.GetRouters(ctx); err == nil {
 		for i := range rts.Routers {
 			r := &rts.Routers[i]
 			if hasManagedBy(r.Labels) && known[uidOf(r.Labels)] {
 				_, _ = fmt.Fprintf(GinkgoWriter, "sweeping leftover router %s\n", r.UUID)
-				_ = svc.DeleteRouter(ctx, &upcloudrequest.DeleteRouterRequest{UUID: r.UUID})
+				_ = api.DeleteRouter(ctx, &upcloudrequest.DeleteRouterRequest{UUID: r.UUID})
+			}
+		}
+	}
+	if nets, err := api.GetNetworks(ctx); err == nil {
+		for i := range nets.Networks {
+			n := &nets.Networks[i]
+			if hasManagedBy(n.Labels) && known[uidOf(n.Labels)] {
+				_, _ = fmt.Fprintf(GinkgoWriter, "sweeping leftover network %s\n", n.UUID)
+				_ = api.DeleteNetwork(ctx, &upcloudrequest.DeleteNetworkRequest{UUID: n.UUID})
 			}
 		}
 	}
@@ -489,33 +467,43 @@ var managedKinds = []struct {
 	{"network", "uuid", true},
 }
 
-// collectLeakedCRs adds a probe for every managed CR still present in the
-// run namespace, whatever its status. Called from AfterSuite before the
-// sample deletes, so a spec that failed before collectProbes still leaves
-// nothing behind: the CR deletes below trigger the finalizers that perform
-// the real UpCloud deletes, and anything that escaped its CR is caught by
-// the sweeps.
+// collectLeakedCRs retains run ownership even before status has been written.
+// Only nonempty external identities become verifiable probes. JSON preserves
+// the association between each CR UID and status, including missing status.
 func collectLeakedCRs() {
 	known := map[string]bool{}
 	for _, p := range probes {
-		known[p.kind+"/"+p.uuid] = true
+		known[p.kind+"/"+p.crUID+"/"+p.uuid] = true
 	}
 	for _, k := range managedKinds {
-		if k.identField == "" {
+		out, err := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace, "-o", "json"))
+		if err != nil {
+			_, _ = fmt.Fprintf(GinkgoWriter, "collect %s: %v\n", k.name, err)
 			continue
 		}
-		out, err := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace,
-			"-o", "jsonpath={.items[*].status."+k.identField+"}"))
-		if err != nil {
-			continue // kind not installed in this run, or CRD already gone
+		var list unstructured.UnstructuredList
+		if err := json.Unmarshal([]byte(out), &list); err != nil {
+			_, _ = fmt.Fprintf(GinkgoWriter, "decode %s: %v\n", k.name, err)
+			continue
 		}
-		for _, ident := range strings.Fields(out) {
-			if ident == "" || known[k.name+"/"+ident] {
+		for _, obj := range list.Items {
+			uid := string(obj.GetUID())
+			ident, _, err := unstructured.NestedString(obj.Object, "status", k.identField)
+			if err != nil {
+				_, _ = fmt.Fprintf(GinkgoWriter, "read %s identity: %v\n", k.name, err)
 				continue
 			}
-			known[k.name+"/"+ident] = true
-			probes = append(probes, probe{kind: k.name, uuid: ident, verifiable: k.verifiable, fetch: fetchFor(k.name, k.verifiable)})
-			_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s (leak pass)\n", k.name, crName(k.name), ident)
+			key := k.name + "/" + uid + "/" + ident
+			if (uid == "" && ident == "") || known[key] {
+				continue
+			}
+			known[key] = true
+			verifiable := k.verifiable && ident != ""
+			probes = append(probes, probe{
+				kind: k.name, uuid: ident, crUID: uid,
+				verifiable: verifiable, fetch: fetchFor(k.name, verifiable),
+			})
+			_, _ = fmt.Fprintf(GinkgoWriter, "collected %s %s -> %s (CR UID %s)\n", k.name, obj.GetName(), ident, uid)
 		}
 	}
 }
@@ -660,7 +648,7 @@ func waitReady(kind, name string, timeout time.Duration) {
 // runCmd runs an external command from the repository root and returns
 // its combined output. Failures are wrapped with the output so the
 // reason is visible in the suite log (a bare ExitError hides it).
-func runCmd(cmd *exec.Cmd) (string, error) {
+func runCommand(cmd *exec.Cmd) (string, error) {
 	cmd.Dir = repoRoot
 	out, err := cmd.CombinedOutput()
 	if err != nil {
