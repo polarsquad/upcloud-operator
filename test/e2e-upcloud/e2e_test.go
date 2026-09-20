@@ -187,7 +187,7 @@ var _ = AfterSuite(func() {
 	By("dumping diagnostics while the cluster is still up")
 	dumpDiagnostics()
 	if crdsInstalled {
-		By("deleting the applied samples in reverse dependency order")
+		By("requesting non-blocking deletion of the applied samples")
 		deleteAllSamples()
 		if crsWaitSpent {
 			By("skipping the CR wait: the spec already spent its budget")
@@ -200,6 +200,7 @@ var _ = AfterSuite(func() {
 		// its whole budget on nothing.
 		By("skipping the CR deletes and wait: setup never installed the CRDs")
 	}
+
 	By("sweeping any leftover UpCloud resource labelled by this run")
 	sweepLabelled(svc, recordFailure)
 	By("sweeping any detached floating IP left in the sample zone")
@@ -264,7 +265,7 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		By("collecting the UpCloud identities created in this run")
 		collectProbes()
 
-		By("deleting all samples in reverse dependency order")
+		By("requesting non-blocking deletion of all samples")
 		deleteAllSamples()
 
 		By("waiting for the CRs to be removed (finalizers drive the real delete)")
@@ -276,15 +277,15 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 	})
 })
 
-// deleteAllSamples removes every managed CR in the run namespace by kind,
-// in reverse dependency order. Kind-based rather than sample-file-based so
-// CRs a failed spec created outside the sample set are still deleted.
+// deleteAllSamples requests deletion of every managed CR in the run namespace
+// by kind. Kind-based rather than sample-file-based so CRs a failed spec
+// created outside the sample set are still deleted. The request order is only
+// a hint: non-blocking deletes overlap, and parents can start deleting while
+// children still exist. Finalizer retries, not request order, drive convergence.
 //
-// The deletes are non-blocking (--wait=false): a blocking delete parks on
-// the kind's finalizer, and a finalizer that cannot complete until a peer
-// CR is deleted (a network waits on its router UpCloud-side) would block
-// the loop before the peer's delete is ever issued. waitForCRsGone is the
-// single place that waits for finalizer drain.
+// The deletes are non-blocking (--wait=false): a blocking delete could park on
+// a finalizer before the loop requests deletion of the resource blocking it.
+// waitForCRsGone is the single place that waits for finalizer drain.
 func deleteAllSamples() {
 	for _, k := range managedKinds {
 		logCmdErr(runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
@@ -493,7 +494,8 @@ func uidOf(labels []upcloud.Label) string {
 // managedKinds describes every kind the operator owns: the plural resource
 // name, the status field holding its identity (empty means the kind has no
 // per-instance identity worth probing), and whether the UpCloud API can
-// confirm deletion for it. Order is teardown order (children first).
+// confirm deletion for it. Children-first request order is a hint, not a
+// completion guarantee; the non-blocking deletes converge through finalizers.
 var managedKinds = []struct {
 	name       string
 	identField string // jsonpath segment under .status, e.g. "uuid" or "address"

@@ -32,6 +32,55 @@ make build-installer IMG=uck:dev
 kubectl apply -f dist/install.yaml
 ```
 
+## Parent-first deletion regression tests
+
+```sh
+go test ./internal/controller/integration -run TestParentFirst -count=1 -v
+go test -race ./internal/controller/integration -count=10
+```
+
+These fake-API integration tests exercise `Reconciler.Reconcile`, the real
+adapters and the controllers' finalizer constants. They create both CRs through
+the Kubernetes fake client, reconcile them to Ready, then request parent deletion
+before child deletion. Status subresources and finalizer-driven CR removal are
+enabled. Each pending pass must return a retry interval, retain its identity and
+finalizer, and report `Ready=False/Deleting`. Exact cloud identities are checked
+through the fake APIs before and after cleanup; tests never delete cloud maps or
+remove finalizers themselves.
+
+| Test | Observed semantics |
+| --- | --- |
+| `TestParentFirstRouterNetworkRetriesAttachedNetwork` | An attached network blocks the fake router's delete with 409. Two pending parent passes retain both resources; deleting the network through its controller unblocks the router retry. |
+| `TestParentFirstObjectStorageBucketRetriesUntilEmpty` | With `force=false`, the bucket blocks service deletion. Bucket and service accepted deletes each retain their CR finalizer until a later pass confirms absence. The bucket CR drains even after the parent CR is gone. |
+| `TestParentFirstDatabaseUserConvergesAfterCascade` | Parent deletion enters `delete-service`, retaining its finalizer. A later parent retry completes the fake deletion and cascades its users. A controlled, one-shot user-delete 409 exercises the child retry, then the saved service identity permits a 404 cleanup after the parent CR is gone. This injected conflict is not a vendor dependency claim. |
+
+The dependency direction follows the adapters and fakes, checked against vendor
+API documentation: [router deletion](https://developers.upcloud.com/1.3/13-networks/#delete-router)
+lists attached networks as a blocker; [MOS service deletion](https://developers.upcloud.com/1.3/21-managed-object-storage/#delete-service)
+requires removal of buckets and IAM entities unless forced;
+[database deletion](https://developers.upcloud.com/1.3/16-managed-database/#delete-managed-database)
+erases the service and its data rather than requiring user CR deletion first.
+The router documentation calls `ROUTER_ATTACHED` "400 Conflict", while the fake
+uses 409 and `RouterAdapter.Delete` only maps 409 to `ErrPending`. The test proves
+the fake's attachment/retry contract, not the vendor's exact status mapping.
+That discrepancy needs vendor confirmation, not an invented reverse dependency.
+
+Scheduling is deterministic and single-threaded, not a controller-manager
+workqueue or an API-server/watch test. The tests assert the requested requeue
+before delivering the next pending pass. Cloud observations use locking API
+methods; synchronous `Calls`/`FailNext` access has no background manager to race.
+The database fake advances deletion on its next delete call; the MOS fake removes
+accepted deletes immediately, but the adapters still require confirmation. Real
+cloud latency and error mapping remain confirmation work for a separately
+approved paid e2e run, not prerequisites for these regression tests.
+
+Mutation checks must fail if pending requeues are suppressed, pending finalizers
+are dropped, completed finalizers are retained, cloud deletion is skipped,
+conflicts lose their pending classification, accepted asynchronous deletes count
+as gone, or a cascaded database user's 404 is rejected. Restore each mutation
+before running the full gate. A tests-only change can use those deliberate
+regressions for RED, then the restored implementation for GREEN.
+
 ## Adding a kind
 
 Worked example: adding a kind to an existing group. Every step has a
