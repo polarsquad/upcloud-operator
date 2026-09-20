@@ -13,7 +13,13 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	lb "github.com/polarsquad/upcloud-operator/api/loadbalancer/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
+)
+
+const (
+	teamKey      = "team"
+	teamPlatform = "platform"
 )
 
 func newService(name string) *lb.LoadBalancer {
@@ -57,7 +63,7 @@ func TestServiceCreateDefaults(t *testing.T) {
 	g.Expect(svc.Backends).To(BeEmpty())
 	g.Expect(svc.Resolvers).To(BeEmpty())
 
-	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "upcloud-operator"}))
+	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue}))
 
 	obs, err = a.Observe(ctx, s)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -96,18 +102,72 @@ func TestServiceDriftOnLabelsTriggersUpdate(t *testing.T) {
 
 	g.Expect(a.Create(ctx, s)).To(Succeed())
 
-	s.Spec.Labels = common.UpCloudLabels{"team": "platform"}
+	s.Spec.Labels = common.UpCloudLabels{teamKey: teamPlatform}
 	obs, err := a.Observe(ctx, s)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(obs.UpToDate).To(BeFalse())
 
 	g.Expect(a.Update(ctx, s)).To(Succeed())
 	got := api.LoadBalancers[s.Status.UUID].Labels
-	g.Expect(got).To(ContainElement(upcloud.Label{Key: "team", Value: "platform"}))
+	g.Expect(got).To(ContainElement(upcloud.Label{Key: teamKey, Value: teamPlatform}))
 
 	obs, err = a.Observe(ctx, s)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(obs.UpToDate).To(BeTrue())
+}
+
+func TestServiceDriftOnLabelValueTriggersUpdate(t *testing.T) {
+	g := NewWithT(t)
+	api := fake.NewLoadBalancerAPI()
+	c := newLBClient(t)
+	a := &LoadBalancerAdapter{API: api, Client: c}
+	s := newService("label-value-lb")
+	s.Spec.Labels = common.UpCloudLabels{teamKey: teamPlatform}
+	ctx := gctx()
+
+	g.Expect(a.Create(ctx, s)).To(Succeed())
+
+	// Same key, new value: still drift, and the old value must be replaced.
+	s.Spec.Labels = common.UpCloudLabels{teamKey: "storage"}
+	obs, err := a.Observe(ctx, s)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(obs.UpToDate).To(BeFalse())
+
+	g.Expect(a.Update(ctx, s)).To(Succeed())
+	got := api.LoadBalancers[s.Status.UUID].Labels
+	g.Expect(got).To(ContainElement(upcloud.Label{Key: teamKey, Value: "storage"}))
+	g.Expect(got).NotTo(ContainElement(upcloud.Label{Key: teamKey, Value: teamPlatform}))
+
+	obs, err = a.Observe(ctx, s)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(obs.UpToDate).To(BeTrue())
+}
+
+// A value edited directly in UpCloud, including the operator's own labels,
+// is drift and is put back on the next reconcile.
+func TestServiceDriftOnExternallyEditedOperatorLabel(t *testing.T) {
+	g := NewWithT(t)
+	api := fake.NewLoadBalancerAPI()
+	c := newLBClient(t)
+	a := &LoadBalancerAdapter{API: api, Client: c}
+	s := newService("edited-lb")
+	ctx := gctx()
+
+	g.Expect(a.Create(ctx, s)).To(Succeed())
+	stored := api.LoadBalancers[s.Status.UUID]
+	for i := range stored.Labels {
+		if stored.Labels[i].Key == upcloudapi.LabelNamespace {
+			stored.Labels[i].Value = "tampered"
+		}
+	}
+
+	obs, err := a.Observe(ctx, s)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(obs.UpToDate).To(BeFalse())
+
+	g.Expect(a.Update(ctx, s)).To(Succeed())
+	g.Expect(api.LoadBalancers[s.Status.UUID].Labels).To(ContainElement(
+		upcloud.Label{Key: upcloudapi.LabelNamespace, Value: s.Namespace}))
 }
 
 func TestServiceDeletePendingUntilGone(t *testing.T) {
@@ -140,7 +200,7 @@ func TestServiceAdoptByUID(t *testing.T) {
 		Zone:             testZone,
 		Plan:             testPlan,
 		OperationalState: upcloud.LoadBalancerOperationalStateRunning,
-		Labels:           []upcloud.Label{{Key: "k8s-uid", Value: "svc-uid"}},
+		Labels:           []upcloud.Label{{Key: upcloudapi.LabelUID, Value: "svc-uid"}},
 	}
 	api.LoadBalancers[adopted.UUID] = adopted
 

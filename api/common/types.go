@@ -44,5 +44,6 @@ type NetworkAttachment struct {
 }
 
 // UpCloudLabels is the user-controlled part of the labels set on an UpCloud resource.
-// Keys managed-by and k8s-uid are reserved for the operator.
+// The operator also sets services.k8s.upcloud/managed-by, /namespace and /uid; a
+// value given here overrides the first two but never services.k8s.upcloud/uid.
 type UpCloudLabels map[string]string

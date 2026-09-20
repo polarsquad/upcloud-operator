@@ -41,7 +41,7 @@ each kind contributes an adapter that maps its spec onto the UpCloud API.
 ## Adapter contract
 
 `Observe` must be side-effect free on UpCloud, may update `status` fields
-(not conditions) and must adopt an existing resource by the `k8s-uid` label
+(not conditions) and must adopt an existing resource by the `services.k8s.upcloud/uid` label
 when `status.uuid` is empty. `Create` sets the external identifier on the
 object. `Update` returns `reconciler.ErrPending` when the external resource
 is mid-transition. `Delete` is idempotent and returns `reconciler.ErrPending`

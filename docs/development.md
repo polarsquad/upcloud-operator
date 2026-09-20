@@ -53,7 +53,7 @@ the same group.
 
 3. **Adapter.** `internal/controller/<group>/<kind>_adapter.go`
    implementing `reconciler.Adapter[*<kind>]`:
-   - `Observe`: side-effect free on UpCloud. Adopt by the `k8s-uid`
+   - `Observe`: side-effect free on UpCloud. Adopt by the `services.k8s.upcloud/uid`
      label where the API has labels, by `(parent, name)` where it does
      not. Write `status` identity fields here.
    - `Create`: set the external identifier on the object on return.
@@ -137,6 +137,70 @@ admin, with a UI):
 
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
+
+### Teardown order
+
+`AfterSuite` removes what the run created, even when a spec failed halfway
+through. Every step runs whatever an earlier one did: a wait that times out
+is recorded and the suite is failed once, at the end, with everything that
+was recorded.
+
+1. Collect the UpCloud identities of every managed CR still present.
+2. Dump diagnostics while the kind cluster is still up.
+3. Delete all CRs without blocking; the operator's finalizers perform the
+   real UpCloud deletes.
+4. Wait for the CRs to disappear (up to 30 minutes). Steps 3 and 4 are
+   skipped when setup failed before the CRDs were installed; step 4 is
+   also skipped when the spec already spent its own wait.
+5. Sweep leftover networks, routers and floating IPs directly through the
+   UpCloud API. This is a cost safety net, not part of what is tested, so
+   it never hides an operator bug: each resource it has to remove is
+   reported with the state of its CR (still present with its finalizers
+   and Ready condition, or already gone) and the sweep's own delete error,
+   and the suite fails at the end. Fix the operator's Delete, not the sweep.
+6. Verify through the UpCloud API that everything is gone.
+7. Delete the kind cluster, which takes the operator, CRDs and namespaces
+   with it.
+
+The suite cannot clean up when its own process is killed (a timeout alarm
+or a cancelled run). So the workflow ends with an `always()` step,
+`go run ./test/e2e-upcloud/cleanup`, that keeps no state from the suite
+and deletes every managed database, managed object storage, router and
+network labelled `services.k8s.upcloud/managed-by=upcloud-operator`, plus detached floating IPs
+in the sample zone. It retries for up to 15 minutes, because the services
+delete asynchronously and a network cannot go until its router has, and it
+fails the job if anything remains. Selecting by label alone is only safe
+because the UpCloud account is dedicated to this suite; do not run the
+workflow against an account that holds other operator-managed resources.
+
+Runs are serialised by a `concurrency` group: every run shares the one
+UpCloud account, so two at once could collide on network ranges and the
+leak sweeps could delete the other run's resources. A dispatch made while
+another run is active waits in the queue and is never cancelled, because
+cancelling a run mid-teardown would leak its paid resources. GitHub keeps
+only one pending run per group, so a third dispatch replaces the queued
+second one.
+
+### Real-API e2e timeouts
+
+The suite's worst case is about 110.5m wall clock: BeforeSuite 2.5m,
+controller-ready 3m, six 5m Ready waits, a 20m Managed Object Storage
+Ready wait, a 15m database Ready wait, a 30m `waitForCRsGone` and a 5m
+`waitForGone` in the spec, then AfterSuite's own 5m `waitForGone` after
+its sweeps. AfterSuite skips `waitForCRsGone` when the spec already spent
+that budget, so it is counted once.
+
+Two alarms must stay ordered above that: `-ginkgo.timeout 120m` (Ginkgo's
+own alarm, default 1h) below `-timeout 125m` (Go's alarm, default 10m).
+If either fires inside teardown it kills the deletes and leaks the run's
+paid resources into the next dispatch.
+
+The budgets come from real runs. Managed Object Storage `setup-checkup`
+took 13 to 15m to create (runs 35214495324 and 35271990226, the longest
+14m42s), so the Ready budget is 20m. Deletion runs the same state machine
+in reverse and exceeded 20m (run 35214495324: deletes issued at 11:35,
+still present at 11:55, gone by about 12:05), so `waitForCRsGone` is 30m.
+Tighten both once more runs record the durations.
 
 ## Known operational notes
 
