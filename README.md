@@ -232,7 +232,7 @@ The operator is validated across three tiers:
   UpCloud API omits empty values on update. Clearing a PTR record requires
   deleting and recreating the FloatingIP.
 - **Adoption.** Networks, Routers, Gateways, Managed Databases, Managed
-  Object Storage and Network Peerings are adopted by the `k8s-uid` label.
+  Object Storage and Network Peerings are adopted by the `services.k8s.upcloud/uid` label.
   Children (users, access keys, buckets, policies, custom domains,
   LoadBalancer children) have no API labels and are matched by `(parent,
   name)`. FloatingIPs carry no API labels, so there is no adoption: a

@@ -46,8 +46,8 @@ import (
 
 const (
 	operatorNS = "upcloud-operator-system"
-	managedBy  = "upcloud-operator"
-	uidLabel   = "k8s-uid"
+	managedBy  = "services.k8s.upcloud/managed-by"
+	uidLabel   = "services.k8s.upcloud/uid"
 	// sampleZone is the zone the samples allocate networks and floating
 	// IPs in; the detached-floating-IP sweep only releases addresses in it.
 	sampleZone = "fi-hel1"
@@ -406,7 +406,7 @@ func allProbesGone(ctx context.Context) (bool, string) {
 }
 
 // sweepLabelled deletes any UpCloud network or router still carrying the
-// operator's managed-by label with a k8s-uid this run created (an orphan
+// operator's managed-by label with a uid label this run created (an orphan
 // left behind, for example by a crash between create and finalizer delete).
 func sweepLabelled() {
 	ctx := context.Background()

@@ -14,7 +14,7 @@ the operator produces.
 | Gateway | Network gateway (NAT / VPN) | `status.uuid` | none | `features`, `zone`, `plan` and the router are immutable; exactly one of `routerRef` / `routerUUID` must be set. Deletion waits while connections remain. |
 | GatewayConnection | Gateway VPN connection | `status.uuid` | none | Identity is `(gatewayUUID, name)`; adoption matches by name. `spec.gatewayRef` and `name` are immutable. `status.gatewayUUID` is the parent gateway. |
 | GatewayTunnel | Gateway IPSec VPN tunnel | `status.uuid` | none | Identity is `(connectionUUID, uuid)`. No adoption (the API tags tunnels with no labels). The PSK is read from a Secret at create time only and is never returned by the API, so a PSK rotation is invisible; bump `spec.rotationToken` to force a re-read (which replaces the tunnel and re-establishes the VPN). The SDK has no tunnel modify, so any spec change replaces the tunnel (delete + create). |
-| NetworkPeering | Network peering to a peer network (by UUID, may be another account) | `status.uuid` | none | Adoption is by the `k8s-uid` label. `networkRef` (local Network CR) and `peerNetworkUUID` are immutable: changing either is a different peering, so delete and recreate. `name`, `configuredStatus` and `labels` are mutable. Ready is state `active`; `pending-peer`, `provisioning` and the conflict/missing-router states are transitional and requeued. |
+| NetworkPeering | Network peering to a peer network (by UUID, may be another account) | `status.uuid` | none | Adoption is by the `services.k8s.upcloud/uid` label. `networkRef` (local Network CR) and `peerNetworkUUID` are immutable: changing either is a different peering, so delete and recreate. `name`, `configuredStatus` and `labels` are mutable. Ready is state `active`; `pending-peer`, `provisioning` and the conflict/missing-router states are transitional and requeued. |
 | FloatingIP | Floating (unbound) IP address | `status.address` | none | The IP address is the identity. No adoption (the API's IP object has no labels): with an empty `status.address` the operator cannot tell which address belongs to the CR. `zone`, `family` and `access` are immutable; `ptrRecord` and `releasePolicy` are mutable. The address is allocated by UpCloud; `status.address` holds the allocated value. `ptrRecord` can be set but not cleared: the API's modify omits empty values, so an empty `spec.ptrRecord` is accepted as-is (not treated as drift) and the existing record stays. To clear a PTR record, delete the FloatingIP (which releases the address) and recreate it. Attaching the IP to a server is out of v0.1 scope (no server API in the operator). |
 | ManagedObjectStorage | Managed Object Storage | `status.uuid` | none | `spec.region` is immutable and is a MOS region (`europe-1`, `europe-2`, `apac-1`, `us-1`), not a compute zone; `spec.configuredStatus` starts/stops the service. Deletion is refused (409) while any bucket exists; delete the buckets first or set `deletionPolicy: Orphan`. |
 | ObjectStoragePolicy | Object storage policy document | `status.name` | none | Identity is `(serviceUUID, name)`. The policy document is immutable in v0.1 (the API only offers versioning); a change requires recreation. Deletion is refused (409) while the policy is attached to a user. A policy document's `Resource` values must be standard S3 ARNs (`arn:aws:s3:::bucket`, `arn:aws:s3:::bucket/*`) or `*`; an invented namespace such as `arn:upcloud:objectstorage::...` is rejected with 400 `Policy has invalid resource`. |
@@ -31,3 +31,17 @@ the operator produces.
 | LoadBalancerFrontendRule | Frontend routing rule | `status.name` | none | Identity is `(frontendUUID, name)`. Matchers and actions are modeled as per-type sub-structs (15 matcher types, 9 action types) with CEL "exactly the sub-struct matching type must be set". The API offers only a full replace, so any change rewrites the rule. |
 | LoadBalancerFrontendTLSConfig | Frontend TLS termination | `status.name` | none | Identity is `(frontendUUID, name)`. `certificateBundleRef` resolves to the bundle's UUID; the compare is by bundle UUID. |
 | LoadBalancerCertificateBundle | Account-level certificate bundle | `status.uuid` | none | Adoption is by `status.uuid` via the account-level list endpoint (no per-bundle label filter). `manual`/`authority` bundles read `tls.crt`/`tls.key`/`ca.crt` from a `certificateSecretRef` Secret; `dynamic` bundles need `hostnames`. |
+
+## Labels
+
+`spec.labels` on a kind that supports it is written to the UpCloud resource, not to the Kubernetes object. The operator follows the ACK tag conventions: its own labels are prefixed with `services.k8s.upcloud/` and user labels win over them on a key collision.
+
+| Label | Value | Overridable |
+|---|---|---|
+| `services.k8s.upcloud/managed-by` | `upcloud-operator` | yes |
+| `services.k8s.upcloud/namespace` | the CR's namespace | yes |
+| `services.k8s.upcloud/uid` | the CR's `metadata.uid` | no |
+
+`uid` is what adoption matches on, so a user value for it is ignored. UpCloud limits label keys to 32 characters and forbids a leading `_`, so prefixed keys must stay short.
+
+Resources created before this prefix existed carry the old `managed-by` and `k8s-uid` keys and are not adopted: relabel or recreate them.

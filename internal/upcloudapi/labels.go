@@ -1,6 +1,7 @@
 package upcloudapi
 
 import (
+	"maps"
 	"slices"
 	"strings"
 
@@ -11,30 +12,60 @@ import (
 )
 
 const (
+	// LabelPrefix namespaces every label the operator sets on its own
+	// behalf, mirroring the services.k8s.aws/ tags of the ACK controllers.
+	// UpCloud label keys are limited to 32 characters, so the keys below
+	// must stay short.
+	LabelPrefix = "services.k8s.upcloud/"
 	// LabelManagedBy marks resources created by this operator.
-	LabelManagedBy = "managed-by"
+	LabelManagedBy = LabelPrefix + "managed-by"
 	// LabelUID carries the owning CR's metadata.uid; used for adoption.
-	LabelUID = "k8s-uid"
+	LabelUID = LabelPrefix + "uid"
+	// LabelNamespace carries the owning CR's namespace.
+	LabelNamespace = LabelPrefix + "namespace"
 	// ManagedByValue is the value of LabelManagedBy.
 	ManagedByValue = "upcloud-operator"
 )
 
-// OwnerLabels returns the two labels every managed resource must carry.
-func OwnerLabels(obj metav1.Object) []upcloud.Label {
-	return []upcloud.Label{
-		{Key: LabelUID, Value: string(obj.GetUID())},
-		{Key: LabelManagedBy, Value: ManagedByValue},
-	}
+// Labels is a set of UpCloud labels keyed by label key.
+type Labels map[string]string
+
+// NewLabels returns an empty Labels.
+func NewLabels() Labels {
+	return Labels{}
 }
 
-// DesiredLabels merges owner labels with user labels, sorted by key.
-// User labels cannot override the owner keys.
+// MergeLabels combines two label sets. In case of collision precedence is
+// given to the labels in a, as ACK's tags.Merge does.
+func MergeLabels(a, b Labels) Labels {
+	out := make(Labels, len(a)+len(b))
+	maps.Copy(out, b)
+	maps.Copy(out, a)
+	return out
+}
+
+// DefaultLabels returns the labels the operator sets on every resource it
+// manages. Users may override every key except LabelUID, which adoption
+// depends on.
+func DefaultLabels(obj metav1.Object) Labels {
+	out := Labels{
+		LabelUID:       string(obj.GetUID()),
+		LabelManagedBy: ManagedByValue,
+	}
+	if ns := obj.GetNamespace(); ns != "" {
+		out[LabelNamespace] = ns
+	}
+	return out
+}
+
+// DesiredLabels merges the default labels with user labels, sorted by key.
+// As with ACK, user labels win over the defaults, except LabelUID, which is
+// always the owner's UID.
 func DesiredLabels(obj metav1.Object, user map[string]string) []upcloud.Label {
-	out := OwnerLabels(obj)
-	for k, v := range user {
-		if k == LabelManagedBy || k == LabelUID {
-			continue
-		}
+	merged := MergeLabels(Labels(user), DefaultLabels(obj))
+	merged[LabelUID] = string(obj.GetUID())
+	out := make([]upcloud.Label, 0, len(merged))
+	for k, v := range merged {
 		out = append(out, upcloud.Label{Key: k, Value: v})
 	}
 	sortLabels(out)

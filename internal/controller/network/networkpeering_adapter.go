@@ -32,7 +32,7 @@ func (a *NetworkPeeringAdapter) localNetworkUUID(ctx context.Context, p *network
 	return resolve.Ready(ctx, a.Client, p.Namespace, p.Spec.NetworkRef.Name, net)
 }
 
-// lookup finds the peering by status UUID, or by the k8s-uid label across the
+// lookup finds the peering by status UUID, or by the uid label across the
 // list (peerings carry labels).
 func (a *NetworkPeeringAdapter) lookup(ctx context.Context, p *networkv1alpha1.NetworkPeering) (*upcloud.NetworkPeering, error) {
 	if p.Status.UUID != "" {

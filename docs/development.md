@@ -53,7 +53,7 @@ the same group.
 
 3. **Adapter.** `internal/controller/<group>/<kind>_adapter.go`
    implementing `reconciler.Adapter[*<kind>]`:
-   - `Observe`: side-effect free on UpCloud. Adopt by the `k8s-uid`
+   - `Observe`: side-effect free on UpCloud. Adopt by the `services.k8s.upcloud/uid`
      label where the API has labels, by `(parent, name)` where it does
      not. Write `status` identity fields here.
    - `Create`: set the external identifier on the object on return.
