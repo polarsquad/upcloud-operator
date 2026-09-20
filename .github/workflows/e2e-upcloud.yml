@@ -16,6 +16,12 @@ on:
 permissions:
   contents: read
 
+# One run at a time: runs share one UpCloud account, and cancelling a run
+# mid-teardown would leak its paid resources.
+concurrency:
+  group: e2e-upcloud
+  cancel-in-progress: false
+
 jobs:
   e2e-upcloud:
     name: Run on Ubuntu

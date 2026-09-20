@@ -138,6 +138,14 @@ admin, with a UI):
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
 
+Runs are serialised by a `concurrency` group: every run shares the one
+UpCloud account, so two at once could collide on network ranges and the
+leak sweeps could delete the other run's resources. A dispatch made while
+another run is active waits in the queue and is never cancelled, because
+cancelling a run mid-teardown would leak its paid resources. GitHub keeps
+only one pending run per group, so a third dispatch replaces the queued
+second one.
+
 ## Known operational notes
 
 - The credentials Secret is the only secret the operator reads. Scope
