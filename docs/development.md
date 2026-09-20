@@ -274,6 +274,24 @@ in reverse and exceeded 20m (run 35214495324: deletes issued at 11:35,
 still present at 11:55, gone by about 12:05), so `waitForCRsGone` is 30m.
 Tighten both once more runs record the durations.
 
+### What the teardown check covers
+
+After the specs, the suite polls the API until every collected resource
+returns 404. Only kinds with an individual `Get*` call are probed
+(`verifiable: true` in `managedKinds`): ManagedDatabase,
+ManagedObjectStorage, FloatingIP, Router and Network. The rest, including
+`objectstorageaccesskey` and the load balancer kinds, have no such call, so
+their probes are skipped rather than polled (a no-op fetch returns nil, and
+nil is not a 404). Those kinds are not checked against the API by the
+suite; the network and router sweeps and a manual audit of the collected
+identities are the only safety net, so after a failed run confirm by hand
+that none of them leaked.
+
+The sample ManagedDatabase pins `properties.version`. UpCloud retires
+versions over time, so if the Ready wait fails with a 400 naming the
+version, list what is offered with `GET /1.3/database/plans` and bump the
+sample and the README example together.
+
 ## Known operational notes
 
 - The credentials Secret is the only secret the operator reads. Scope
