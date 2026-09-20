@@ -45,6 +45,13 @@ const metricsServiceName = "uck-controller-manager-metrics-service"
 // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
 const metricsRoleBindingName = "uck-metrics-binding"
 
+// cleanupMetricsBinding removes the cluster-scoped object even when a spec
+// failed before creating it. The runner is injectable for credential-free tests.
+func cleanupMetricsBinding(run func(*exec.Cmd) (string, error)) error {
+	_, err := run(exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName, "--ignore-not-found=true"))
+	return err
+}
+
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
 
@@ -84,6 +91,9 @@ var _ = Describe("Manager", Ordered, func() {
 	// After all tests have been executed, clean up by undeploying the controller, uninstalling CRDs,
 	// and deleting the namespace.
 	AfterAll(func() {
+		By("cleaning up the metrics ClusterRoleBinding")
+		metricsCleanupErr := cleanupMetricsBinding(utils.Run)
+
 		By("cleaning up the curl pod for metrics")
 		cmd := exec.Command("kubectl", "delete", "pod", "curl-metrics", "-n", namespace)
 		_, _ = utils.Run(cmd)
@@ -99,6 +109,9 @@ var _ = Describe("Manager", Ordered, func() {
 		By("removing manager namespace")
 		cmd = exec.Command("kubectl", "delete", "ns", namespace)
 		_, _ = utils.Run(cmd)
+
+		// Report this only after the remaining cleanup has had a chance to run.
+		Expect(metricsCleanupErr).NotTo(HaveOccurred(), "Failed to delete the metrics ClusterRoleBinding")
 	})
 
 	// After each test, check for failures and collect logs, events,
