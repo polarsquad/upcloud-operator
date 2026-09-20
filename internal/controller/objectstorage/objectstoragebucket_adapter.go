@@ -120,11 +120,10 @@ func (a *ObjectStorageBucketAdapter) Update(ctx context.Context, b *objectstorag
 }
 
 // Delete implements reconciler.Adapter. A non-empty bucket is refused (409)
-// with a plain error carrying the API title (the user must empty it; Orphan is
-// the escape hatch); a 404 counts as deleted; a successful delete is pending
-// until the metrics report it deleted or absent.
+// and reported as pending with the API title until the user empties it;
+// a 404 counts as deleted; a successful delete is pending until gone.
 func (a *ObjectStorageBucketAdapter) Delete(ctx context.Context, b *objectstoragev1alpha1.ObjectStorageBucket) error {
-	if b.Status.ServiceUUID == "" {
+	if b.Status.ServiceUUID == "" || b.Status.Name == "" {
 		return nil
 	}
 	err := a.API.DeleteManagedObjectStorageBucket(ctx, &request.DeleteManagedObjectStorageBucketRequest{
@@ -137,7 +136,7 @@ func (a *ObjectStorageBucketAdapter) Delete(ctx context.Context, b *objectstorag
 	case upcloudapi.IsNotFound(err):
 		return nil
 	case upcloudapi.IsConflict(err):
-		return fmt.Errorf("%s", upcloudapi.TitleOf(err))
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete object storage bucket: %w", err)
 	}

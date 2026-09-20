@@ -219,7 +219,7 @@ func (a *ObjectStorageUserAdapter) Update(ctx context.Context, u *objectstoragev
 
 // Delete implements reconciler.Adapter. Detaches every attached policy,
 // deletes the user's access keys, then deletes the user; a 404 counts as
-// deleted.
+// deleted. Conflicts during cleanup or deletion are pending.
 func (a *ObjectStorageUserAdapter) Delete(ctx context.Context, u *objectstoragev1alpha1.ObjectStorageUser) error {
 	if u.Status.ServiceUUID == "" || u.Status.Username == "" {
 		return nil
@@ -241,6 +241,9 @@ func (a *ObjectStorageUserAdapter) Delete(ctx context.Context, u *objectstoragev
 			Username:    u.Status.Username,
 			Name:        p.Name,
 		}); err != nil && !upcloudapi.IsNotFound(err) {
+			if upcloudapi.IsConflict(err) {
+				return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
+			}
 			return fmt.Errorf("detach policy %q: %w", p.Name, err)
 		}
 	}
@@ -251,6 +254,9 @@ func (a *ObjectStorageUserAdapter) Delete(ctx context.Context, u *objectstoragev
 			Username:    u.Status.Username,
 			AccessKeyID: k.AccessKeyID,
 		}); err != nil && !upcloudapi.IsNotFound(err) {
+			if upcloudapi.IsConflict(err) {
+				return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
+			}
 			return fmt.Errorf("delete access key %q: %w", k.AccessKeyID, err)
 		}
 	}
@@ -258,6 +264,9 @@ func (a *ObjectStorageUserAdapter) Delete(ctx context.Context, u *objectstoragev
 		ServiceUUID: u.Status.ServiceUUID,
 		Username:    u.Status.Username,
 	}); err != nil && !upcloudapi.IsNotFound(err) {
+		if upcloudapi.IsConflict(err) {
+			return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
+		}
 		return fmt.Errorf("delete object storage user: %w", err)
 	}
 	return nil

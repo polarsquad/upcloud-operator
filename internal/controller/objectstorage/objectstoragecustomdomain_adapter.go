@@ -115,18 +115,21 @@ func (a *ObjectStorageCustomDomainAdapter) Update(ctx context.Context, d *object
 	return nil
 }
 
-// Delete implements reconciler.Adapter. A 404 counts as deleted.
+// Delete implements reconciler.Adapter. A 404 counts as deleted; conflicts
+// are pending.
 func (a *ObjectStorageCustomDomainAdapter) Delete(ctx context.Context, d *objectstoragev1alpha1.ObjectStorageCustomDomain) error {
-	if d.Status.ServiceUUID == "" {
+	if d.Status.ServiceUUID == "" || d.Status.DomainName == "" {
 		return nil
 	}
 	err := a.API.DeleteManagedObjectStorageCustomDomain(ctx, &request.DeleteManagedObjectStorageCustomDomainRequest{
 		ServiceUUID: d.Status.ServiceUUID,
-		DomainName:  d.Spec.DomainName,
+		DomainName:  d.Status.DomainName,
 	})
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete object storage custom domain: %w", err)
 	}

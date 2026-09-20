@@ -166,9 +166,9 @@ func (a *ObjectStorageAccessKeyAdapter) Update(ctx context.Context, k *objectsto
 }
 
 // Delete implements reconciler.Adapter. Deletes the key; a 404 counts as
-// deleted.
+// deleted and a conflict is pending.
 func (a *ObjectStorageAccessKeyAdapter) Delete(ctx context.Context, k *objectstoragev1alpha1.ObjectStorageAccessKey) error {
-	if k.Status.AccessKeyID == "" || k.Status.ServiceUUID == "" {
+	if k.Status.AccessKeyID == "" || k.Status.ServiceUUID == "" || k.Status.Username == "" {
 		return nil
 	}
 	return a.deleteKey(ctx, k.Status.ServiceUUID, k.Status.Username, k.Status.AccessKeyID)
@@ -183,6 +183,8 @@ func (a *ObjectStorageAccessKeyAdapter) deleteKey(ctx context.Context, svcUUID, 
 	switch {
 	case err == nil, upcloudapi.IsNotFound(err):
 		return nil
+	case upcloudapi.IsConflict(err):
+		return fmt.Errorf("%w: %s", reconciler.ErrPending, upcloudapi.TitleOf(err))
 	default:
 		return fmt.Errorf("delete object storage access key: %w", err)
 	}

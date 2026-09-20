@@ -55,7 +55,7 @@ func TestBucketCreateObservePagination(t *testing.T) {
 	g.Expect(b.Status.Name).To(Equal("my-bucket"))
 }
 
-func TestBucketDeleteNonEmptyFails(t *testing.T) {
+func TestBucketDeleteNonEmptyPending(t *testing.T) {
 	g := NewWithT(t)
 	api := fake.NewObjectStorageAPI()
 	c := newMOSClient(t)
@@ -70,8 +70,12 @@ func TestBucketDeleteNonEmptyFails(t *testing.T) {
 
 	err := a.Delete(ctx, b)
 	g.Expect(err).To(MatchError(ContainSubstring("not empty")))
-	// A plain error (the user must empty the bucket), not a reconcile retry.
-	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeFalse())
+	// Keep the finalizer pending until the user has emptied the bucket.
+	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeTrue())
+	g.Expect(api.Buckets[parentUUID]).To(HaveLen(1))
+	api.Buckets[parentUUID][0].TotalObjects = 0
+	g.Expect(errors.Is(a.Delete(ctx, b), reconciler.ErrPending)).To(BeTrue())
+	g.Expect(a.Delete(ctx, b)).To(Succeed())
 }
 
 func TestBucketDeletePendingWhenEmpty(t *testing.T) {

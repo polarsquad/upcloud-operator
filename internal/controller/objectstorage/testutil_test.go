@@ -23,14 +23,18 @@ import (
 // Shared test constants. Kept in one place so the goconst linter (which
 // counts occurrences per package) does not flag repeated literals.
 const (
-	testNS        = "default"
-	parentName    = "svc"
-	parentUUID    = "moss-0001"
-	regionFinland = "fi-hel1"
-	readyReason   = "Available"
-	testUserName  = "alice"
-	testUserUID   = "user-uid"
-	testROPolicy  = "read-only"
+	testNS              = "default"
+	parentName          = "svc"
+	parentUUID          = "moss-0001"
+	regionFinland       = "fi-hel1"
+	readyReason         = "Available"
+	testUserName        = "alice"
+	testUserUID         = "user-uid"
+	testROPolicy        = "read-only"
+	serviceUUIDField    = "ServiceUUID"
+	getServiceCall      = "GetManagedObjectStorage"
+	getUserCall         = "GetManagedObjectStorageUser"
+	deleteAccessKeyCall = "DeleteManagedObjectStorageUserAccessKey"
 )
 
 // newMOSClient returns a fake client with the corev1, network and

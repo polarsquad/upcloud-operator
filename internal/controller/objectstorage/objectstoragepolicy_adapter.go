@@ -100,7 +100,7 @@ func (a *ObjectStoragePolicyAdapter) Update(ctx context.Context, p *objectstorag
 // Delete implements reconciler.Adapter. A policy still attached to a user is
 // refused (409) and reported as pending; a 404 counts as deleted.
 func (a *ObjectStoragePolicyAdapter) Delete(ctx context.Context, p *objectstoragev1alpha1.ObjectStoragePolicy) error {
-	if p.Status.ServiceUUID == "" {
+	if p.Status.ServiceUUID == "" || p.Status.Name == "" {
 		return nil
 	}
 	err := a.API.DeleteManagedObjectStoragePolicy(ctx, &request.DeleteManagedObjectStoragePolicyRequest{
