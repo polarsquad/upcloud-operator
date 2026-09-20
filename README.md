@@ -4,14 +4,24 @@
   </a>
 </p>
 
-# upcloud-operator
+# UCK: UpCloud Controllers for Kubernetes
 
 Sponsored by [UpCloud](https://upcloud.com/), who provided infrastructure credits and funded real-API end-to-end testing for this project.
 
-A Kubernetes operator for UpCloud hosted products. It exposes namespaced
+UCK (UpCloud Controllers for Kubernetes), formerly `upcloud-operator`,
+manages UpCloud hosted products through Kubernetes. It exposes namespaced
 CRDs for SDN networks and routers, network gateways, Managed Databases,
 Managed Object Storage, and Load Balancers, and keeps every UpCloud
 resource in sync with its Custom Resource.
+
+The name follows the cloud-controller naming convention used by ACK
+(AWS Controllers for Kubernetes), ASO (Azure Service Operator), and KCC
+(Kubernetes Config Connector). See [the naming proposal](https://github.com/polarsquad/upcloud-operator/issues/48)
+and the [UCK migration guide](docs/migration-to-uck.md).
+
+The GitHub repository and Go module remain
+`github.com/polarsquad/upcloud-operator`; the release image is
+`ghcr.io/polarsquad/uck`. The existing CRD API groups are unchanged.
 
 ## Kinds
 
@@ -29,10 +39,18 @@ produces.
 
 ## Install
 
-Apply the release manifests (CRDs plus the operator Deployment):
+For an existing `upcloud-operator` installation, follow the
+[migration guide](docs/migration-to-uck.md) instead of installing a second
+controller alongside it.
+
+For a new installation, select a published release containing the UCK rename.
+Earlier releases still use the old image and Kubernetes object names. This
+change does not republish those releases. Apply the release manifests (CRDs
+plus the UCK Deployment):
 
 ```sh
-kubectl apply -f https://github.com/polarsquad/upcloud-operator/releases/latest/download/install.yaml
+TAG=vX.Y.Z # replace with a published UCK release tag
+kubectl apply -f "https://github.com/polarsquad/upcloud-operator/releases/download/${TAG}/install.yaml"
 ```
 
 ### Verify the image signature
@@ -42,7 +60,7 @@ Sigstore). Verify before you trust it. The certificate identity embeds
 the ref the image was built from, so include `@refs/tags/<tag>`:
 
 ```sh
-cosign verify ghcr.io/polarsquad/upcloud-operator:<tag> \
+cosign verify ghcr.io/polarsquad/uck:<tag> \
   --certificate-identity "https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml@refs/tags/<tag>" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
@@ -54,7 +72,7 @@ exits at startup when no credential is set.
 
 ```sh
 kubectl create secret generic upcloud-credentials \
-  -n upcloud-operator-system \
+  -n uck-system \
   --from-literal=UPCLOUD_TOKEN=***
 ```
 
@@ -66,10 +84,10 @@ rotate it by replacing the Secret and restarting the Deployment:
 
 ```sh
 kubectl create secret generic upcloud-credentials \
-  -n upcloud-operator-system \
+  -n uck-system \
   --from-literal=UPCLOUD_TOKEN=*** \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl rollout restart deployment controller-manager -n upcloud-operator-system
+kubectl rollout restart deployment uck-controller-manager -n uck-system
 ```
 
 ## Example: a full chain
@@ -167,7 +185,7 @@ Each kind has `spec.deletionPolicy`: `Delete` (default) or `Orphan`.
 
 ## Manager flags
 
-Run `kubectl edit deployment controller-manager -n upcloud-operator-system`
+Run `kubectl edit deployment uck-controller-manager -n uck-system`
 to adjust:
 
 - `--leader-elect` (default false): run multiple replicas with
@@ -246,6 +264,8 @@ v0.1 (the operator does not manage Cloud Servers).
 
 ## Docs
 
+- [docs/migration-to-uck.md](docs/migration-to-uck.md): renamed identifiers,
+  upgrade steps, compatibility boundaries, and rollback.
 - [docs/resources.md](docs/resources.md): every kind, its UpCloud
   counterpart, produced Secrets.
 - [docs/development.md](docs/development.md): adding a kind, the local

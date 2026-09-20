@@ -2,7 +2,7 @@ apiVersion: loadbalancer.upcloud.polarsquad.com/v1alpha1
 kind: LoadBalancerFrontend
 metadata:
   labels:
-    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/name: uck
     app.kubernetes.io/managed-by: kustomize
   name: loadbalancerfrontend-sample
 spec:

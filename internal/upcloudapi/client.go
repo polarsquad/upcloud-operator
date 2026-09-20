@@ -9,7 +9,7 @@ import (
 )
 
 // UserAgent identifies the operator in UpCloud request logs.
-const UserAgent = "upcloud-operator"
+const UserAgent = "uck"
 
 // NewServiceFromEnv builds the UpCloud API client from UPCLOUD_TOKEN or
 // UPCLOUD_USERNAME/UPCLOUD_PASSWORD. Exactly one method must be set.

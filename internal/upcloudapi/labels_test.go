@@ -20,7 +20,7 @@ func TestDesiredLabelsAddsOwnerLabelsAndSorts(t *testing.T) {
 	g.Expect(got).To(Equal([]upcloud.Label{
 		{Key: "env", Value: "dev"},
 		{Key: "k8s-uid", Value: "uid-123"},
-		{Key: "managed-by", Value: "upcloud-operator"},
+		{Key: "managed-by", Value: "uck"},
 		{Key: "team", Value: "platform"},
 	}))
 }

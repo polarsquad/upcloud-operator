@@ -1,4 +1,4 @@
-# AGENTS.md: upcloud-operator
+# AGENTS.md: UCK (UpCloud Controllers for Kubernetes)
 
 Guidance for AI coding agents working in this repository.
 

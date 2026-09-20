@@ -16,7 +16,7 @@ const (
 	// LabelUID carries the owning CR's metadata.uid; used for adoption.
 	LabelUID = "k8s-uid"
 	// ManagedByValue is the value of LabelManagedBy.
-	ManagedByValue = "upcloud-operator"
+	ManagedByValue = "uck"
 )
 
 // OwnerLabels returns the two labels every managed resource must carry.

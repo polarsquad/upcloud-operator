@@ -57,7 +57,7 @@ func TestServiceCreateDefaults(t *testing.T) {
 	g.Expect(svc.Backends).To(BeEmpty())
 	g.Expect(svc.Resolvers).To(BeEmpty())
 
-	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "upcloud-operator"}))
+	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "uck"}))
 
 	obs, err = a.Observe(ctx, s)
 	g.Expect(err).NotTo(HaveOccurred())

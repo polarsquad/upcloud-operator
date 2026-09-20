@@ -48,7 +48,7 @@ func TestServiceCreateDefaults(t *testing.T) {
 	g.Expect(svc.Name).To(Equal("bucket-svc"))
 
 	// Owner labels are present.
-	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "upcloud-operator"}))
+	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "uck"}))
 
 	// Observe now finds it, is ready and up to date.
 	obs, err = a.Observe(ctx, s)

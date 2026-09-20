@@ -2,7 +2,7 @@ apiVersion: objectstorage.upcloud.polarsquad.com/v1alpha1
 kind: ObjectStorageUser
 metadata:
   labels:
-    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/name: uck
     app.kubernetes.io/managed-by: kustomize
   name: objectstorageuser-sample
 spec:

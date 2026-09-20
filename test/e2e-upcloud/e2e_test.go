@@ -45,8 +45,8 @@ import (
 // (workflow_dispatch, environment: upcloud-e2e).
 
 const (
-	operatorNS = "upcloud-operator-system"
-	managedBy  = "upcloud-operator"
+	operatorNS = "uck-system"
+	managedBy  = "uck"
 	uidLabel   = "k8s-uid"
 	// sampleZone is the zone the samples allocate networks and floating
 	// IPs in; the detached-floating-IP sweep only releases addresses in it.
@@ -54,7 +54,7 @@ const (
 )
 
 var (
-	managerImage = "example.com/upcloud-operator:e2e-upcloud"
+	managerImage = "example.com/uck:e2e-upcloud"
 	runID        = fmt.Sprintf("%d", time.Now().Unix())
 	namespace    = fmt.Sprintf("upcloud-e2e-%s", runID)
 	kindCluster  = fmt.Sprintf("upcloud-e2e-%s", runID)
@@ -99,7 +99,7 @@ type probe struct {
 
 func TestE2EUpCloud(t *testing.T) {
 	RegisterFailHandler(Fail)
-	_, _ = fmt.Fprintf(GinkgoWriter, "Starting upcloud-operator real-API e2e suite (run %s)\n", runID)
+	_, _ = fmt.Fprintf(GinkgoWriter, "Starting uck real-API e2e suite (run %s)\n", runID)
 	RunSpecs(t, "e2e-upcloud suite")
 }
 

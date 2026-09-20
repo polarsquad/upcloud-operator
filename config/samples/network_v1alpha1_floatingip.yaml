@@ -2,7 +2,7 @@ apiVersion: network.upcloud.polarsquad.com/v1alpha1
 kind: FloatingIP
 metadata:
   labels:
-    app.kubernetes.io/name: upcloud-operator
+    app.kubernetes.io/name: uck
     app.kubernetes.io/managed-by: kustomize
   name: floatingip-sample
 spec:

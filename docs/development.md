@@ -1,7 +1,11 @@
 # Development
 
 This guide covers the local loop, how to add a kind, and how to cut a
-release.
+release of UCK (UpCloud Controllers for Kubernetes). The project was
+previously called `upcloud-operator`; see the
+[migration guide](migration-to-uck.md) for identifier changes and upgrade
+steps. Go imports and the repository URL retain the old path until the
+GitHub repository is renamed.
 
 ## The local loop
 
@@ -24,7 +28,7 @@ make run                     # or: make deploy IMG=<image>
 To build the installer locally:
 
 ```sh
-make build-installer IMG=upcloud-operator:dev
+make build-installer IMG=uck:dev
 kubectl apply -f dist/install.yaml
 ```
 
@@ -105,22 +109,30 @@ the same group.
 ## Releasing
 
 Releases are cut from tags; the `Release` workflow builds and pushes the
-multi-arch image to GHCR, signs it keylessly, builds
-`dist/install.yaml`, and publishes the GitHub release.
+multi-arch image to `ghcr.io/polarsquad/uck`, signs it keylessly, builds
+`dist/install.yaml`, and publishes the GitHub release in
+`polarsquad/upcloud-operator`. Only releases cut after the rename use the
+UCK image and Kubernetes object names; existing tags are not moved or
+republished. Choose a new version for `TAG` below. Before the first UCK
+release, confirm GHCR package ownership, Actions write access and public
+read access for `polarsquad/uck`. The UpCloud branding/trademark question
+in [#48](https://github.com/polarsquad/upcloud-operator/issues/48) still
+requires maintainer confirmation.
 
 ```sh
 git checkout main && git pull
-git tag -s v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
+TAG=vX.Y.Z # replace with the next release version
+git tag -s "$TAG" -m "$TAG"
+git push origin "$TAG"
 ```
 
 Tags matching `*rc*`, `*alpha*` or `*beta*` create pre-releases.
 Verify a release (the certificate identity embeds the tag ref):
 
 ```sh
-docker manifest inspect ghcr.io/polarsquad/upcloud-operator:v0.1.0
-cosign verify ghcr.io/polarsquad/upcloud-operator:v0.1.0 \
-  --certificate-identity "https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml@refs/tags/v0.1.0" \
+docker manifest inspect "ghcr.io/polarsquad/uck:${TAG}"
+cosign verify "ghcr.io/polarsquad/uck:${TAG}" \
+  --certificate-identity "https://github.com/polarsquad/upcloud-operator/.github/workflows/release.yml@refs/tags/${TAG}" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

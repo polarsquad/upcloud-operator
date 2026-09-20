@@ -7,7 +7,7 @@ domain: upcloud.polarsquad.com
 layout:
 - go.kubebuilder.io/v4
 multigroup: true
-projectName: upcloud-operator
+projectName: uck
 repo: github.com/polarsquad/upcloud-operator
 resources:
 - api:

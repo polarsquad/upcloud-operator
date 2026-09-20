@@ -1,8 +1,14 @@
 # Resources
 
-The table lists the kinds this operator manages, the UpCloud product each
-kind maps to, where the UpCloud identity lands in status, and any Secrets
-the operator produces.
+The table lists the kinds UCK (UpCloud Controllers for Kubernetes)
+manages, the UpCloud product each kind maps to, where the UpCloud identity
+lands in status, and any Secrets the operator produces.
+
+UCK was previously called `upcloud-operator`. The rename does not change
+the `*.upcloud.polarsquad.com` API groups, kind names, finalizers, or
+resource identities. Existing Custom Resources stay in their original
+namespaces. See the [migration guide](migration-to-uck.md) before
+upgrading an existing installation.
 
 | Kind | UpCloud product | Identity in status | Produced Secrets | Notes |
 |---|---|---|---|---|
