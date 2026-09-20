@@ -204,8 +204,8 @@ The operator is validated across three tiers:
   and deletion idempotency without making calls to live services.
 - **Kind smoke tests (`test/e2e/`)**: Runs in GitHub Actions on every pull
   request and push to `main`. Deploys the controller manager to a local KinD
-  cluster to verify controller startup, leader election, RBAC bindings,
-  and Prometheus metrics under the Kubernetes restricted pod security profile.
+  cluster to verify controller startup and an authenticated Prometheus
+  metrics endpoint under the Kubernetes restricted pod security profile.
 - **Real UpCloud API end-to-end suite (`test/e2e-upcloud/`)**: Validated
   against live UpCloud infrastructure in `fi-hel1` (gated behind GitHub
   Actions `workflow_dispatch` on the `upcloud-e2e` environment with real API
@@ -219,8 +219,11 @@ The operator is validated across three tiers:
   - Verifies automatic Kubernetes Secret creation for S3 access credentials
     and database connection URI
   - Verifies teardown: reverse-dependency deletion driven by Kubernetes
-    finalizers, followed by UpCloud API verification confirming all resources
-    return 404
+    finalizers, followed by an UpCloud API check that the Managed Database,
+    Managed Object Storage service, Floating IP, Router and Network return
+    404. Kinds without a per-instance Get endpoint (for example the object
+    storage children) are not probed individually and rely on the leak
+    sweeps.
 
 ## Known limitations (v0.1)
 
@@ -233,10 +236,11 @@ The operator is validated across three tiers:
 - **Free-form database `properties`.** Validated by UpCloud at request
   time, so a typo surfaces as an `UpdateFailed` condition, not an
   admission error. Typed properties per engine are planned.
-- **Object storage policy ARNs.** UpCloud validates policy document
-  `Resource` entries against standard S3 ARNs (`arn:aws:s3:::<bucket>`,
-  `arn:aws:s3:::<bucket>/*`, or `*`). Custom ARN namespaces are rejected
-  with status 400.
+- **Object storage policy ARNs.** In a policy document, `Resource: "*"` is
+  verified against the real API. An invented namespace such as
+  `arn:upcloud:objectstorage::...` is rejected with status 400. Standard S3
+  ARNs (`arn:aws:s3:::<bucket>`, `arn:aws:s3:::<bucket>/*`) are expected to
+  work but are not yet verified against this endpoint.
 - **Undetectable secrets.** Tunnel PSKs and certificate private keys are
   never echoed by the API; rotating the backing Secret does not trigger a
   re-apply on its own. Bump `spec.rotationToken` on a GatewayTunnel or
