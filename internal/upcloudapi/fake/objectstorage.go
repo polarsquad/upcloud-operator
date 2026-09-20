@@ -2,8 +2,10 @@ package fake
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -510,8 +512,50 @@ func (f *ObjectStorageAPI) DeleteManagedObjectStorageUserAccessKey(_ context.Con
 	return NotFound("object storage access key")
 }
 
+// invalidPolicyResource returns the first statement Resource in doc that uses
+// the invented arn:upcloud: namespace, which the real API rejects with 400. A
+// document that does not parse is not checked further.
+func invalidPolicyResource(doc string) (string, bool) {
+	var d struct {
+		Statement json.RawMessage `json:"Statement"`
+	}
+	if json.Unmarshal([]byte(doc), &d) != nil {
+		return "", false
+	}
+	var stmts []struct {
+		Resource json.RawMessage `json:"Resource"`
+	}
+	if json.Unmarshal(d.Statement, &stmts) != nil {
+		var one struct {
+			Resource json.RawMessage `json:"Resource"`
+		}
+		if json.Unmarshal(d.Statement, &one) != nil {
+			return "", false
+		}
+		stmts = append(stmts, one)
+	}
+	for _, st := range stmts {
+		var many []string
+		if json.Unmarshal(st.Resource, &many) != nil {
+			var single string
+			if json.Unmarshal(st.Resource, &single) != nil {
+				continue
+			}
+			many = []string{single}
+		}
+		for _, r := range many {
+			if strings.HasPrefix(r, "arn:upcloud:") {
+				return r, true
+			}
+		}
+	}
+	return "", false
+}
+
 // CreateManagedObjectStoragePolicy implements upcloudapi.ObjectStorageAPI.
-// The document is stored and returned as the raw string, unchanged.
+// The document is stored and returned as the raw string, unchanged. Resource
+// values in the arn:upcloud: namespace are rejected with 400, as the real API
+// does; other values are not validated.
 func (f *ObjectStorageAPI) CreateManagedObjectStoragePolicy(_ context.Context, r *request.CreateManagedObjectStoragePolicyRequest) (*upcloud.ManagedObjectStoragePolicy, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -521,6 +565,9 @@ func (f *ObjectStorageAPI) CreateManagedObjectStoragePolicy(_ context.Context, r
 	svc, ok := f.Services[r.ServiceUUID]
 	if !ok {
 		return nil, NotFound("object storage")
+	}
+	if res, bad := invalidPolicyResource(r.Document); bad {
+		return nil, Invalid(fmt.Sprintf("Policy has invalid resource: '%s'", res))
 	}
 	if f.findPolicy(r.ServiceUUID, r.Name) != nil {
 		return nil, Conflict("object storage policy")

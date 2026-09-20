@@ -3,11 +3,13 @@ package objectstorage
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/request"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/polarsquad/upcloud-operator/api/common"
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
@@ -100,4 +102,39 @@ func TestPolicyDeleteConflictsWhileAttached(t *testing.T) {
 	err = a.Delete(ctx, p)
 	g.Expect(err).To(MatchError(ContainSubstring("attached")))
 	g.Expect(errors.Is(err, reconciler.ErrPending)).To(BeTrue())
+}
+
+func TestPolicyCreateRejectsInventedResourceNamespace(t *testing.T) {
+	g := NewWithT(t)
+	api := fake.NewObjectStorageAPI()
+	c := newMOSClient(t)
+	readyService(g, c, api)
+	a := &ObjectStoragePolicyAdapter{API: api, Client: c}
+	p := newPolicy("bad")
+	p.Spec.Document = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["s3:GetObject"],"Resource":["arn:upcloud:objectstorage::bucket/*"]}]}`
+
+	err := a.Create(context.Background(), p)
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("Policy has invalid resource"))
+	g.Expect(api.Policies[parentUUID]).To(BeEmpty())
+}
+
+// The sample is applied by the real-API e2e; keep it acceptable to the fake's
+// resource validation so a bad sample fails here, not on a dispatch.
+func TestPolicySampleDocumentIsAccepted(t *testing.T) {
+	g := NewWithT(t)
+	raw, err := os.ReadFile("../../../config/samples/objectstorage_v1alpha1_objectstoragepolicy.yaml")
+	g.Expect(err).NotTo(HaveOccurred())
+	sample := &objectstoragev1alpha1.ObjectStoragePolicy{}
+	g.Expect(yaml.Unmarshal(raw, sample)).To(Succeed())
+	g.Expect(sample.Spec.Document).NotTo(BeEmpty())
+
+	api := fake.NewObjectStorageAPI()
+	c := newMOSClient(t)
+	readyService(g, c, api)
+	a := &ObjectStoragePolicyAdapter{API: api, Client: c}
+	p := newPolicy("sample")
+	p.Spec.Document = sample.Spec.Document
+
+	g.Expect(a.Create(context.Background(), p)).To(Succeed())
 }
