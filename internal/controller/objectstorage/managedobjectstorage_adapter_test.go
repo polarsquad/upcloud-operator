@@ -12,6 +12,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
@@ -48,8 +49,7 @@ func TestServiceCreateDefaults(t *testing.T) {
 	g.Expect(svc.Name).To(Equal("bucket-svc"))
 
 	// Owner labels are present.
-	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: "managed-by", Value: "uck"}))
-
+	g.Expect(svc.Labels).To(ContainElement(upcloud.Label{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue}))
 	// Observe now finds it, is ready and up to date.
 	obs, err = a.Observe(ctx, s)
 	g.Expect(err).NotTo(HaveOccurred())
@@ -160,7 +160,7 @@ func TestServiceAdoptByUID(t *testing.T) {
 		Region:           regionFinland,
 		OperationalState: upcloud.ManagedObjectStorageOperationalStateRunning,
 		ConfiguredStatus: upcloud.ManagedObjectStorageConfiguredStatusStarted,
-		Labels:           []upcloud.Label{{Key: "k8s-uid", Value: "svc-uid"}},
+		Labels:           []upcloud.Label{{Key: upcloudapi.LabelUID, Value: "svc-uid"}},
 		Endpoints:        []upcloud.ManagedObjectStorageEndpoint{{DomainName: "moss-adopt.upcloudobjects.com", Type: EndpointTypePublic}},
 	}
 	api.Services[adopted.UUID] = adopted

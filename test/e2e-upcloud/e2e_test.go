@@ -53,6 +53,10 @@ const (
 	sampleZone = "fi-hel1"
 )
 
+// crsGoneBudget covers Managed Object Storage delete latency, which runs the
+// same slow state machine as its create (over 20m observed).
+const crsGoneBudget = 30 * time.Minute
+
 var (
 	managerImage = "example.com/uck:e2e-upcloud"
 	runID        = fmt.Sprintf("%d", time.Now().Unix())
@@ -60,6 +64,13 @@ var (
 	kindCluster  = fmt.Sprintf("upcloud-e2e-%s", runID)
 	svc          *upcloudsvc.Service
 	probes       []probe
+	// crdsInstalled is set once BeforeSuite has installed the CRDs. Until
+	// then there are no CRs to delete or wait for, and every kubectl get
+	// of a managed kind fails.
+	crdsInstalled bool
+	// crsWaitSpent is set once the spec has run its own waitForCRsGone, so
+	// AfterSuite does not spend the same budget a second time.
+	crsWaitSpent bool
 	repoRoot     string
 	runCmd       = runCommand
 	// diagDir collects diagnostics for upload on failure. Created lazily
@@ -94,7 +105,7 @@ func resolveRepoRoot() string {
 type probe struct {
 	kind       string
 	uuid       string
-	crUID      string // Kubernetes identity, distinct from the UpCloud identity.
+	crUID      string // metadata.uid of the owning CR; the k8s-uid label value
 	verifiable bool
 	fetch      func(context.Context, string) error // returns the Get* call's error
 }
@@ -135,6 +146,7 @@ var _ = BeforeSuite(func() {
 	cmd = exec.Command("make", "install")
 	_, err = runCmd(cmd)
 	Expect(err).NotTo(HaveOccurred(), "Failed to install CRDs")
+	crdsInstalled = true
 
 	By("creating the operator namespace and the real credentials secret")
 	cmd = exec.Command("kubectl", "apply", "-f", "-")
@@ -157,34 +169,49 @@ var _ = AfterSuite(func() {
 	if svc == nil {
 		return
 	}
-	// Best-effort teardown that must not itself fail the suite: always
-	// remove the real UpCloud resources and the kind cluster, even if a
-	// spec failed halfway through. The collection pass runs BEFORE the
-	// sample deletes: a spec that dies before collectProbes (the normal
-	// failure path) leaves no probes, and without this pass the sweeps and
-	// the gone-verification would iterate an empty list while real
-	// resources from the failed spec are still being provisioned.
+	// Best-effort teardown: always remove the real UpCloud resources and
+	// the kind cluster, even if a spec failed halfway through. The
+	// collection pass runs BEFORE the sample deletes: a spec that dies
+	// before collectProbes (the normal failure path) leaves no probes, and
+	// without this pass the sweeps and the gone-verification would iterate
+	// an empty list while real resources from the failed spec are still
+	// being provisioned. Sweeps report what they had to remove; the suite
+	// is failed once, at the end.
+	var failures []string
+	recordFailure := func(message string) { failures = append(failures, message) }
+	// A failed Eventually aborts this node, which would skip the sweeps and
+	// the cluster teardown, so the waits record their timeout here instead.
+	record := NewGomega(func(message string, _ ...int) { recordFailure(message) })
 	By("collecting identities from every managed CR still in the run namespace")
 	collectLeakedCRs()
 	By("dumping diagnostics while the cluster is still up")
 	dumpDiagnostics()
-	By("deleting the applied samples in reverse dependency order")
-	deleteAllSamples()
-	By("waiting for the CRs to be removed (finalizers drive the real delete)")
-	waitForCRsGone(20 * time.Minute)
+	if crdsInstalled {
+		By("deleting the applied samples in reverse dependency order")
+		deleteAllSamples()
+		if crsWaitSpent {
+			By("skipping the CR wait: the spec already spent its budget")
+		} else {
+			By("waiting for the CRs to be removed (finalizers drive the real delete)")
+			waitForCRsGone(record, crsGoneBudget)
+		}
+	} else {
+		// Every get of a managed kind would fail and the wait would spend
+		// its whole budget on nothing.
+		By("skipping the CR deletes and wait: setup never installed the CRDs")
+	}
 	By("sweeping any leftover UpCloud resource labelled by this run")
-	sweepLabelled(svc)
+	sweepLabelled(svc, recordFailure)
 	By("sweeping any detached floating IP left in the sample zone")
-	sweepDetachedFloatingIPs()
+	sweepDetachedFloatingIPs(recordFailure)
 	By("verifying the UpCloud API confirms everything is gone")
-	waitForGone(5 * time.Minute)
-	By("undeploying the operator and uninstalling the CRDs")
-	_, _ = runCmd(exec.Command("make", "undeploy"))
-	_, _ = runCmd(exec.Command("make", "uninstall", "ignore-not-found=true"))
-	_, _ = runCmd(exec.Command("kubectl", "delete", "ns", namespace, "--ignore-not-found=true"))
-	_, _ = runCmd(exec.Command("kubectl", "delete", "ns", operatorNS, "--ignore-not-found=true"))
+	waitForGone(record, 5*time.Minute)
 	By("deleting the kind cluster")
 	_, _ = runCmd(exec.Command("kind", "delete", "cluster", "--name", kindCluster))
+
+	if len(failures) > 0 {
+		Fail("the operator left resources behind:\n" + strings.Join(failures, "\n"))
+	}
 })
 
 var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
@@ -213,11 +240,8 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		waitReady("router", "router-sample", 5*time.Minute)
 		waitReady("network", "network-sample", 5*time.Minute)
 		waitReady("floatingip", "floatingip-sample", 5*time.Minute)
-		// MOS can sit in UpCloud's setup-checkup state well past 5
-		// minutes (run 35211338876: >5.5m, never reached running before
-		// teardown). Vendor provisioning latency is outside the
-		// operator's control, so this gets the database's 15m budget.
-		waitReady("managedobjectstorage", "managedobjectstorage-sample", 15*time.Minute)
+		// setup-checkup takes ~13-15m; see docs/development.md.
+		waitReady("managedobjectstorage", "managedobjectstorage-sample", 20*time.Minute)
 		waitReady("objectstoragepolicy", "objectstoragepolicy-sample", 5*time.Minute)
 		waitReady("objectstorageuser", "objectstorageuser-sample", 5*time.Minute)
 		waitReady("objectstorageaccesskey", "objectstorageaccesskey-sample", 5*time.Minute)
@@ -244,10 +268,11 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 		deleteAllSamples()
 
 		By("waiting for the CRs to be removed (finalizers drive the real delete)")
-		waitForCRsGone(20 * time.Minute)
+		crsWaitSpent = true
+		waitForCRsGone(Default, crsGoneBudget)
 
 		By("verifying the UpCloud API confirms everything is gone")
-		waitForGone(5 * time.Minute)
+		waitForGone(Default, 5*time.Minute)
 	})
 })
 
@@ -262,8 +287,16 @@ var _ = Describe("real UpCloud API reconciliation", Ordered, func() {
 // single place that waits for finalizer drain.
 func deleteAllSamples() {
 	for _, k := range managedKinds {
-		_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
-			"--ignore-not-found=true", "--all=true", "--wait=false"))
+		logCmdErr(runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
+			"--ignore-not-found=true", "--all=true", "--wait=false")))
+	}
+}
+
+// logCmdErr writes a failed command's error to the Ginkgo log so a stuck
+// teardown says why instead of only timing out.
+func logCmdErr(_ string, err error) {
+	if err != nil {
+		_, _ = fmt.Fprintln(GinkgoWriter, err)
 	}
 }
 
@@ -303,15 +336,16 @@ func collectProbes() {
 // Presence is read via jsonpath: `kubectl get <kind>` exits 0 even for an
 // empty list, and a kubectl failure (missing CRD, API blip) would
 // otherwise be indistinguishable from "gone".
-func waitForCRsGone(timeout time.Duration) {
-	Eventually(func() bool {
+func waitForCRsGone(g Gomega, timeout time.Duration) {
+	g.Eventually(func() bool {
 		allGone := true
 		for _, k := range managedKinds {
-			_, _ = runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
-				"--ignore-not-found=true", "--all=true", "--wait=false"))
+			logCmdErr(runCmd(exec.Command("kubectl", "delete", k.name, "-n", namespace,
+				"--ignore-not-found=true", "--all=true", "--wait=false")))
 			out, gerr := runCmd(exec.Command("kubectl", "get", k.name, "-n", namespace,
 				"-o", "jsonpath={.items[*].metadata.name}"))
 			if gerr != nil {
+				_, _ = fmt.Fprintln(GinkgoWriter, gerr)
 				allGone = false // CRD missing or API error: not provably gone
 				continue
 			}
@@ -325,9 +359,9 @@ func waitForCRsGone(timeout time.Duration) {
 
 // waitForGone polls the real UpCloud API until every collected verifiable
 // resource returns a 404.
-func waitForGone(timeout time.Duration) {
+func waitForGone(g Gomega, timeout time.Duration) {
 	ctx := context.Background()
-	Eventually(func() bool {
+	g.Eventually(func() bool {
 		gone, detail := allProbesGone(ctx)
 		if !gone {
 			_, _ = fmt.Fprintln(GinkgoWriter, detail)
@@ -356,8 +390,12 @@ func allProbesGone(ctx context.Context) (bool, string) {
 }
 
 // sweepLabelled deletes any UpCloud network or router still carrying the
-// operator's managed-by label with a k8s-uid this run created (an orphan
+// operator's managed-by label with a uid label this run created (an orphan
 // left behind, for example by a crash between create and finalizer delete).
+//
+// The sweep is a cost safety net, not a substitute for the operator's
+// delete: every resource it has to remove is reported, with the state of
+// its CR, so the failure points at the operator's Delete.
 type networkSweeper interface {
 	GetRouters(context.Context, ...upcloudrequest.QueryFilter) (*upcloud.Routers, error)
 	DeleteRouter(context.Context, *upcloudrequest.DeleteRouterRequest) error
@@ -365,7 +403,7 @@ type networkSweeper interface {
 	DeleteNetwork(context.Context, *upcloudrequest.DeleteNetworkRequest) error
 }
 
-func sweepLabelled(api networkSweeper) {
+func sweepLabelled(api networkSweeper, report func(string)) {
 	ctx := context.Background()
 	known := map[string]bool{}
 	for _, p := range probes {
@@ -378,8 +416,9 @@ func sweepLabelled(api networkSweeper) {
 		for i := range rts.Routers {
 			r := &rts.Routers[i]
 			if hasManagedBy(r.Labels) && known[uidOf(r.Labels)] {
-				_, _ = fmt.Fprintf(GinkgoWriter, "sweeping leftover router %s\n", r.UUID)
-				_ = api.DeleteRouter(ctx, &upcloudrequest.DeleteRouterRequest{UUID: r.UUID})
+				state := crStateOf("router", uidOf(r.Labels))
+				derr := api.DeleteRouter(ctx, &upcloudrequest.DeleteRouterRequest{UUID: r.UUID})
+				report(leftoverMessage("router", r.UUID, state, derr))
 			}
 		}
 	}
@@ -387,11 +426,50 @@ func sweepLabelled(api networkSweeper) {
 		for i := range nets.Networks {
 			n := &nets.Networks[i]
 			if hasManagedBy(n.Labels) && known[uidOf(n.Labels)] {
-				_, _ = fmt.Fprintf(GinkgoWriter, "sweeping leftover network %s\n", n.UUID)
-				_ = api.DeleteNetwork(ctx, &upcloudrequest.DeleteNetworkRequest{UUID: n.UUID})
+				state := crStateOf("network", uidOf(n.Labels))
+				derr := api.DeleteNetwork(ctx, &upcloudrequest.DeleteNetworkRequest{UUID: n.UUID})
+				report(leftoverMessage("network", n.UUID, state, derr))
 			}
 		}
 	}
+}
+
+// crStateOf describes the CR that owns a leftover UpCloud resource, from
+// the CR list of its kind (matched by metadata.uid, the k8s-uid label).
+func crStateOf(kind, uid string) string {
+	out, err := runCmd(exec.Command("kubectl", "get", kind, "-n", namespace, "-o",
+		"jsonpath={range .items[*]}{.metadata.uid}{'\\t'}{.metadata.name}{'\\t'}"+
+			"{.metadata.deletionTimestamp}{'\\t'}{.metadata.finalizers}{'\\t'}"+
+			"{.status.conditions[?(@.type=='Ready')].reason}{'\\t'}"+
+			"{.status.conditions[?(@.type=='Ready')].message}{'\\n'}{end}"))
+	if err != nil {
+		return fmt.Sprintf("its CR state could not be read (%v)", err)
+	}
+	return crStateFor(out, uid)
+}
+
+// crStateFor picks the tab-separated CR row with the given uid out of the
+// crStateOf output and words what it says about why the delete did not
+// happen.
+func crStateFor(rows, uid string) string {
+	for _, line := range strings.Split(rows, "\n") {
+		f := strings.SplitN(line, "\t", 6)
+		if len(f) < 6 || f[0] != uid {
+			continue
+		}
+		return fmt.Sprintf("its CR %s still exists (deletionTimestamp=%q finalizers=%s Ready=%s: %s)",
+			f[1], f[2], f[3], f[4], f[5])
+	}
+	return "its CR is already gone, so the finalizer was removed without the resource being deleted"
+}
+
+// leftoverMessage words one resource the operator should have deleted.
+func leftoverMessage(kind, id, crState string, deleteErr error) string {
+	msg := fmt.Sprintf("operator left %s %s on UpCloud: %s", kind, id, crState)
+	if deleteErr != nil {
+		msg += fmt.Sprintf("; the sweep's own delete also failed: %v", deleteErr)
+	}
+	return msg
 }
 
 func hasManagedBy(labels []upcloud.Label) bool {
@@ -536,7 +614,7 @@ func fetchFor(kind string, verifiable bool) func(context.Context, string) error 
 // sample zone, and not carried by any collected probe (a probed address is
 // the CR/finalizer path's business and waitForGone verifies it). This
 // cannot release attached or non-floating addresses.
-func sweepDetachedFloatingIPs() {
+func sweepDetachedFloatingIPs(report func(string)) {
 	ctx := context.Background()
 	ips, err := svc.GetIPAddresses(ctx)
 	if err != nil {
@@ -554,8 +632,8 @@ func sweepDetachedFloatingIPs() {
 		if ip.Zone != sampleZone || ip.ServerUUID != "" || ip.Floating != upcloud.True || probed[ip.Address] {
 			continue
 		}
-		_, _ = fmt.Fprintf(GinkgoWriter, "sweeping detached floating IP %s\n", ip.Address)
-		_ = svc.ReleaseIPAddress(ctx, &upcloudrequest.ReleaseIPAddressRequest{IPAddress: ip.Address})
+		derr := svc.ReleaseIPAddress(ctx, &upcloudrequest.ReleaseIPAddressRequest{IPAddress: ip.Address})
+		report(leftoverMessage("floating IP", ip.Address, "no CR of this run tracks it", derr))
 	}
 }
 

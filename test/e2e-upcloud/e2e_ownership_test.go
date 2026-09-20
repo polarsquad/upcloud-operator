@@ -113,7 +113,7 @@ func TestSweepRunOwnership(t *testing.T) {
 			}
 			api.Routers[cloudID] = &upcloud.Router{UUID: cloudID, Labels: labels}
 			api.Networks[cloudID] = &upcloud.Network{UUID: cloudID, Labels: labels}
-			sweepLabelled(api)
+			sweepLabelled(api, func(string) {})
 			if tc.wantDelete {
 				if len(api.Routers) != 0 || len(api.Networks) != 0 {
 					t.Fatalf("run-owned resources were not swept: routers=%v networks=%v", api.Routers, api.Networks)
