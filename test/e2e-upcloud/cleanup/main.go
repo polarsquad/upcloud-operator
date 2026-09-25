@@ -6,12 +6,14 @@
 // because the test account is dedicated to this suite and the workflow
 // serialises runs.
 //
-// It exits non-zero when nothing was moving by the deadline: no delete was
-// accepted on the last pass, or a list failed. Managed databases and object
-// storages delete asynchronously on the UpCloud side (a single MOS delete
-// has run past 20 minutes), so a delete accepted on the last pass is still
-// converging when the deadline fires; the step then reports the leftovers
-// as in flight and exits zero, and the next dispatch re-sweeps them.
+// A cancelled run's leftovers are now removed by the next dispatch's preflight
+// check, so this tool is a secondary safety net. It exits non-zero when nothing
+// was moving by the deadline: no delete was accepted on the last pass, or a
+// list failed. Managed databases and object storages delete asynchronously on
+// the UpCloud side (a single MOS delete has run past 20 minutes), so a delete
+// accepted on the last pass is still converging when the deadline fires; the
+// step then reports the leftovers as in flight and exits zero, and the next
+// dispatch re-sweeps them.
 package main
 
 import (
@@ -20,16 +22,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
-	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/request"
-
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
+	"github.com/polarsquad/upcloud-operator/test/e2e-upcloud/leftovers"
 )
 
 const (
-	sampleZone = "fi-hel1"
-	deadline   = 15 * time.Minute
-	pollEvery  = 20 * time.Second
+	deadline  = 15 * time.Minute
+	pollEvery = 20 * time.Second
 )
 
 func main() {
@@ -41,135 +40,23 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), deadline)
 	defer cancel()
 
-	for {
-		left, deleted, listFailures := sweep(ctx, svc)
-		if left == 0 {
-			fmt.Println("cleanup: nothing left")
-			return
-		}
-		select {
-		case <-ctx.Done():
-			// A delete accepted on the last pass is still running on the
-			// UpCloud side (managed databases and object storages delete
-			// asynchronously), so the account is converging: report it and
-			// let the next dispatch's sweep pick up anything that remains.
-			if deleted > 0 && listFailures == 0 {
-				fmt.Fprintf(os.Stderr, "cleanup: %d resource(s) deleting on the "+
-					"UpCloud side at the deadline; re-run the sweep if the "+
-					"next dispatch sees leftovers\n", left)
-				return
-			}
-			fmt.Fprintf(os.Stderr, "cleanup: %d resource(s) still present after %s\n", left, deadline)
-			os.Exit(1)
-		case <-time.After(pollEvery):
-		}
-	}
-}
+	_, last := leftovers.Drain(ctx, svc, os.Stdout, os.Stderr, pollEvery)
 
-type sweeper interface {
-	GetManagedDatabases(context.Context, *request.GetManagedDatabasesRequest) ([]upcloud.ManagedDatabase, error)
-	DeleteManagedDatabase(context.Context, *request.DeleteManagedDatabaseRequest) error
-	GetManagedObjectStorages(
-		context.Context, *request.GetManagedObjectStoragesRequest,
-	) ([]upcloud.ManagedObjectStorage, error)
-	DeleteManagedObjectStorage(context.Context, *request.DeleteManagedObjectStorageRequest) error
-	GetRouters(context.Context, ...request.QueryFilter) (*upcloud.Routers, error)
-	DeleteRouter(context.Context, *request.DeleteRouterRequest) error
-	GetNetworks(context.Context, ...request.QueryFilter) (*upcloud.Networks, error)
-	DeleteNetwork(context.Context, *request.DeleteNetworkRequest) error
-	GetIPAddresses(context.Context) (*upcloud.IPAddresses, error)
-	ReleaseIPAddress(context.Context, *request.ReleaseIPAddressRequest) error
-}
-
-// sweep issues one delete per matching resource, dependants first (managed
-// services, then routers, then networks: a network waits on its router), and
-// returns how many matches it saw, how many deletes it got accepted, and how
-// many lists failed. Delete errors are logged and retried on the next pass,
-// since the services delete asynchronously and a network delete 409s until
-// they are gone.
-func sweep(ctx context.Context, svc sweeper) (left, deleted, listFailures int) {
-	// A list that fails proves nothing is gone, so it counts as a leftover
-	// and the next pass retries it.
-	listFailed := func(kind string, err error) {
-		left++
-		listFailures++
-		fmt.Fprintf(os.Stderr, "cleanup: list %s: %v\n", kind, err)
-	}
-	try := func(kind, id string, err error) {
-		left++
-		if err != nil && !upcloudapi.IsNotFound(err) {
-			fmt.Fprintf(os.Stderr, "cleanup: delete %s %s: %v\n", kind, id, err)
-			return
-		}
-		// An accepted delete (or a delete that found nothing) means the
-		// resource is converging on the UpCloud side, not stuck.
-		if err == nil {
-			deleted++
-		}
-		fmt.Printf("cleanup: deleting %s %s\n", kind, id)
+	if last.Left() == 0 {
+		fmt.Println("cleanup: nothing left")
+		return
 	}
 
-	if dbs, err := svc.GetManagedDatabases(ctx, &request.GetManagedDatabasesRequest{}); err == nil {
-		for i := range dbs {
-			if hasManagedBy(dbs[i].Labels) {
-				try("managed database", dbs[i].UUID,
-					svc.DeleteManagedDatabase(ctx, &request.DeleteManagedDatabaseRequest{UUID: dbs[i].UUID}))
-			}
-		}
-	} else {
-		listFailed("managed databases", err)
+	// A delete accepted on the last pass is still running on the
+	// UpCloud side (managed databases and object storages delete
+	// asynchronously), so the account is converging: report it and
+	// let the next dispatch's sweep pick up anything that remains.
+	if last.Deleted > 0 && last.ListFailures == 0 {
+		fmt.Fprintf(os.Stderr, "cleanup: %d resource(s) deleting on the "+
+			"UpCloud side at the deadline; re-run the sweep if the "+
+			"next dispatch sees leftovers\n", last.Left())
+		return
 	}
-	if oss, err := svc.GetManagedObjectStorages(ctx, &request.GetManagedObjectStoragesRequest{}); err == nil {
-		for i := range oss {
-			if hasManagedBy(oss[i].Labels) {
-				try("managed object storage", oss[i].UUID,
-					svc.DeleteManagedObjectStorage(ctx, &request.DeleteManagedObjectStorageRequest{UUID: oss[i].UUID, Force: true}))
-			}
-		}
-	} else {
-		listFailed("managed object storages", err)
-	}
-	if rts, err := svc.GetRouters(ctx); err == nil {
-		for i := range rts.Routers {
-			if hasManagedBy(rts.Routers[i].Labels) {
-				try("router", rts.Routers[i].UUID,
-					svc.DeleteRouter(ctx, &request.DeleteRouterRequest{UUID: rts.Routers[i].UUID}))
-			}
-		}
-	} else {
-		listFailed("routers", err)
-	}
-	if nets, err := svc.GetNetworks(ctx); err == nil {
-		for i := range nets.Networks {
-			if hasManagedBy(nets.Networks[i].Labels) {
-				try("network", nets.Networks[i].UUID,
-					svc.DeleteNetwork(ctx, &request.DeleteNetworkRequest{UUID: nets.Networks[i].UUID}))
-			}
-		}
-	} else {
-		listFailed("networks", err)
-	}
-	// Same rule as the suite's sweep: only unattached floating IPs in the
-	// sample zone, never an attached or non-floating address.
-	if ips, err := svc.GetIPAddresses(ctx); err == nil {
-		for i := range ips.IPAddresses {
-			ip := &ips.IPAddresses[i]
-			if ip.Zone == sampleZone && ip.ServerUUID == "" && ip.Floating == upcloud.True {
-				try("floating IP", ip.Address,
-					svc.ReleaseIPAddress(ctx, &request.ReleaseIPAddressRequest{IPAddress: ip.Address}))
-			}
-		}
-	} else {
-		listFailed("IP addresses", err)
-	}
-	return left, deleted, listFailures
-}
-
-func hasManagedBy(labels []upcloud.Label) bool {
-	for _, l := range labels {
-		if l.Key == upcloudapi.LabelManagedBy {
-			return true
-		}
-	}
-	return false
+	fmt.Fprintf(os.Stderr, "cleanup: %d resource(s) still present after %s\n", last.Left(), deadline)
+	os.Exit(1)
 }

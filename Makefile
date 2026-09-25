@@ -68,7 +68,7 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 # Clear credentials as a second guard against accidental real-API execution.
 .PHONY: test-e2e-helpers
 test-e2e-helpers:
-	UPCLOUD_TOKEN= UPCLOUD_USERNAME= UPCLOUD_PASSWORD= go test -tags=e2e_upcloud ./test/e2e-upcloud/ -skip '^TestE2EUpCloud$$'
+	UPCLOUD_TOKEN= UPCLOUD_USERNAME= UPCLOUD_PASSWORD= go test -tags=e2e_upcloud ./test/e2e-upcloud/... -skip '^TestE2EUpCloud$$'
 	UPCLOUD_TOKEN= UPCLOUD_USERNAME= UPCLOUD_PASSWORD= go test -tags=e2e ./test/e2e/ -skip '^TestE2E$$'
 
 # TODO(user): To use a different vendor for e2e tests, modify the setup under 'tests/e2e'.

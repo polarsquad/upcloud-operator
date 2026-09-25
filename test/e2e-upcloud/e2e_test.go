@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
+	"github.com/polarsquad/upcloud-operator/test/e2e-upcloud/leftovers"
 )
 
 // This suite runs against the REAL UpCloud API and costs money (it
@@ -50,12 +52,18 @@ const (
 	operatorNS = "uck-system"
 	// sampleZone is the zone the samples allocate networks and floating
 	// IPs in; the detached-floating-IP sweep only releases addresses in it.
-	sampleZone = "fi-hel1"
+	sampleZone = leftovers.SampleZone
 )
 
 // crsGoneBudget covers Managed Object Storage delete latency, which runs the
 // same slow state machine as its create (over 20m observed).
 const crsGoneBudget = 30 * time.Minute
+
+// preflightBudget limits how long the preflight check waits for cleanup.
+const preflightBudget = crsGoneBudget
+
+// preflightPoll is the interval between preflight sweep passes.
+const preflightPoll = 20 * time.Second
 
 var (
 	managerImage = "example.com/uck:e2e-upcloud"
@@ -110,6 +118,41 @@ type probe struct {
 	fetch      func(context.Context, string) error // returns the Get* call's error
 }
 
+// preflightLeftovers checks the UpCloud account for leftovers from a previous run
+// and cleans them up if found. It returns the list of found resources and any
+// error encountered. If resources are found but successfully cleaned up within
+// the budget, it returns the found list with nil error and logs to w.
+func preflightLeftovers(ctx context.Context, api leftovers.API, w io.Writer, budget, every time.Duration) ([]leftovers.Resource, error) {
+	ctx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
+
+	first, last := leftovers.Drain(ctx, api, w, w, every)
+
+	if first.Left() == 0 {
+		return nil, nil
+	}
+
+	// Resources were found; report and check if they were cleaned up.
+	msg := fmt.Sprintf("ERROR: preflight: a previous run leaked %d UpCloud resource(s): ", len(first.Found))
+	for i, r := range first.Found {
+		if i > 0 {
+			msg += ", "
+		}
+		msg += r.String()
+	}
+	if first.ListFailures > 0 {
+		msg += fmt.Sprintf(" (%d list failure(s); see stderr for details)", first.ListFailures)
+	}
+	_, _ = fmt.Fprintln(w, msg)
+
+	if last.Left() == 0 {
+		_, _ = fmt.Fprintln(w, "preflight: leftovers removed; continuing")
+		return first.Found, nil
+	}
+
+	return first.Found, fmt.Errorf("preflight: previous run leaked UpCloud resources that could not be removed within %v: %v (list failures: %d); run `go run ./test/e2e-upcloud/cleanup` and dispatch again", budget, last.Found, last.ListFailures)
+}
+
 func TestE2EUpCloud(t *testing.T) {
 	RegisterFailHandler(Fail)
 	_, _ = fmt.Fprintf(GinkgoWriter, "Starting uck real-API e2e suite (run %s)\n", runID)
@@ -124,8 +167,16 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-	svc, err = upcloudapi.NewServiceFromEnv()
+	client, err := upcloudapi.NewServiceFromEnv()
 	Expect(err).NotTo(HaveOccurred(), "real UpCloud client should be built from UPCLOUD_TOKEN")
+
+	By("checking the UpCloud account for leftovers from a previous run")
+	found, err := preflightLeftovers(context.Background(), client, GinkgoWriter, preflightBudget, preflightPoll)
+	if len(found) > 0 {
+		AddReportEntry("preflight leftovers", found)
+	}
+	Expect(err).NotTo(HaveOccurred(), "preflight check")
+	svc = client
 
 	By("building the manager image")
 	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", managerImage))
