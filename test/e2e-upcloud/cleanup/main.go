@@ -1,7 +1,8 @@
 // Command cleanup removes every UpCloud resource the operator labelled
 // managed-by=uck, plus detached floating IPs in the sample zone. The real-API e2e
 // workflow runs it in an always() step after the suite, so a suite killed
-// mid-teardown (timeout alarm, cancelled run) cannot leak paid resources. It
+// mid-teardown by a timeout alarm cannot leak paid resources. A manually
+// cancelled run skips this step and still needs a manual sweep. It
 // keeps no state from the suite: it selects by label alone, which is safe
 // because the test account is dedicated to this suite and the workflow
 // serialises runs.
@@ -101,12 +102,14 @@ func sweep(ctx context.Context, svc sweeper) (left, deleted, listFailures int) {
 			fmt.Fprintf(os.Stderr, "cleanup: delete %s %s: %v\n", kind, id, err)
 			return
 		}
-		// An accepted delete (or a delete that found nothing) means the
-		// resource is converging on the UpCloud side, not stuck.
+		// An accepted delete means the resource is converging on the UpCloud
+		// side, not stuck. A 404 means it was already gone.
 		if err == nil {
 			deleted++
+			fmt.Printf("cleanup: deleting %s %s\n", kind, id)
+		} else {
+			fmt.Printf("cleanup: already gone %s %s\n", kind, id)
 		}
-		fmt.Printf("cleanup: deleting %s %s\n", kind, id)
 	}
 
 	if dbs, err := svc.GetManagedDatabases(ctx, &request.GetManagedDatabasesRequest{}); err == nil {
