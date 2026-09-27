@@ -248,10 +248,10 @@ that holds other operator-managed resources.
 Runs are serialised by a `concurrency` group: every run shares the one
 UpCloud account, so two at once could collide on network ranges and the
 leak sweeps could delete the other run's resources. A dispatch made while
-another run is active waits in the queue and is never cancelled, because
-cancelling a run mid-teardown would leak its paid resources. GitHub keeps
-only one pending run per group, so a third dispatch replaces the queued
-second one.
+another run is active waits in the queue instead of cancelling the active
+run, because cancelling a run mid-teardown would leak its paid resources.
+GitHub keeps only one pending run per group, so a third dispatch replaces
+the queued second one.
 
 ### Probe verifiability
 
