@@ -1,5 +1,5 @@
 // Command cleanup removes every UpCloud resource the operator labelled
-// managed-by=uck, plus detached floating IPs in the sample zone. The real-API e2e
+// services.k8s.upcloud.managed-by=uck, plus detached floating IPs in the sample zone. The real-API e2e
 // workflow runs it in an always() step after the suite, so a suite killed
 // mid-teardown (timeout alarm, cancelled run) cannot leak paid resources. It
 // keeps no state from the suite: it selects by label alone, which is safe

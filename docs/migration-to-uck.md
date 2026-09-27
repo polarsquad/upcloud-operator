@@ -171,6 +171,16 @@ allow the old controller to reconcile the same CRs. It may change cloud
 labels back to `managed-by=upcloud-operator`; keep audits compatible with
 both values. Recheck CR conditions and workload Secrets after rollback.
 
+## Later label key rename
+
+The operator ownership and adoption label keys were later renamed:
+- `managed-by` to `services.k8s.upcloud.managed-by`
+- `k8s-uid` to `services.k8s.upcloud.uid`
+
+The references to `k8s-uid` in 'Unchanged identifiers', 'Cloud label reconciliation',
+and 'Rollback' describe the label keys as they existed in the initial UCK release and are now outdated. Adoption for resources with an
+empty `status.uuid` no longer matches the old `k8s-uid` label.
+
 ## Future repository rename
 
 Renaming the GitHub repository, changing the Go module path, and updating

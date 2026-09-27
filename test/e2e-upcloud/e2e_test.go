@@ -105,7 +105,7 @@ func resolveRepoRoot() string {
 type probe struct {
 	kind       string
 	uuid       string
-	crUID      string // metadata.uid of the owning CR; the k8s-uid label value
+	crUID      string // metadata.uid of the owning CR; the services.k8s.upcloud.uid label value
 	verifiable bool
 	fetch      func(context.Context, string) error // returns the Get* call's error
 }

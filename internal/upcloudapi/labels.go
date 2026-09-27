@@ -11,10 +11,14 @@ import (
 )
 
 const (
+	// LabelPrefix is the common prefix for operator-managed label keys.
+	// We use "." instead of "/" because per-key label endpoints put the key
+	// in the URL path unescaped, and a list filter would percent-encode "/".
+	LabelPrefix = "services.k8s.upcloud."
 	// LabelManagedBy marks resources created by this operator.
-	LabelManagedBy = "managed-by"
+	LabelManagedBy = LabelPrefix + "managed-by"
 	// LabelUID carries the owning CR's metadata.uid; used for adoption.
-	LabelUID = "k8s-uid"
+	LabelUID = LabelPrefix + "uid"
 	// ManagedByValue is the value of LabelManagedBy.
 	ManagedByValue = "uck"
 )
@@ -32,7 +36,8 @@ func OwnerLabels(obj metav1.Object) []upcloud.Label {
 func DesiredLabels(obj metav1.Object, user map[string]string) []upcloud.Label {
 	out := OwnerLabels(obj)
 	for k, v := range user {
-		if k == LabelManagedBy || k == LabelUID {
+		if k == LabelManagedBy || k == LabelUID ||
+			k == "managed-by" || k == "k8s-uid" { // also strip the old key names so users cannot re-inject them via spec.labels
 			continue
 		}
 		out = append(out, upcloud.Label{Key: k, Value: v})

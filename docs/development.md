@@ -106,7 +106,7 @@ the same group.
 
 3. **Adapter.** `internal/controller/<group>/<kind>_adapter.go`
    implementing `reconciler.Adapter[*<kind>]`:
-   - `Observe`: side-effect free on UpCloud. Adopt by the `k8s-uid`
+   - `Observe`: side-effect free on UpCloud. Adopt by the `services.k8s.upcloud.uid`
      label where the API has labels, by `(parent, name)` where it does
      not. Write `status` identity fields here.
    - `Create`: set the external identifier on the object on return.
@@ -231,7 +231,7 @@ The suite cannot clean up when its own process is killed by a timeout
 alarm, so the workflow ends with an `always()` step,
 `go run ./test/e2e-upcloud/cleanup`, that keeps no state from the suite
 and deletes every managed database, managed object storage, router and
-network labelled `managed-by=uck`, plus detached floating IPs in the
+network labelled `services.k8s.upcloud.managed-by=uck`, plus detached floating IPs in the
 sample zone. The step runs after a failed or timed-out suite; a manually
 cancelled run skips it, so a cancel can still leak the run's resources
 and needs a manual sweep. It retries for up to 15 minutes, because the
