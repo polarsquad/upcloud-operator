@@ -22,7 +22,7 @@ func TestDesiredLabelsAddsOwnerLabelsAndSorts(t *testing.T) {
 	got := upcloudapi.DesiredLabels(owner(), map[string]string{"team": "platform", "env": "dev"})
 	g.Expect(got).To(Equal([]upcloud.Label{
 		{Key: "env", Value: "dev"},
-		{Key: upcloudapi.LabelManagedBy, Value: "uck"},
+		{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue},
 		{Key: upcloudapi.LabelUID, Value: testUID},
 		{Key: "team", Value: "platform"},
 	})) // sorted by key: env < services.k8s.upcloud.managed-by < services.k8s.upcloud.uid < team
@@ -34,14 +34,14 @@ func TestDesiredLabelsUserCannotOverrideOwnerKeys(t *testing.T) {
 	// Test old key names are filtered
 	got := upcloudapi.DesiredLabels(owner(), map[string]string{"k8s-uid": "evil", "managed-by": "me"})
 	g.Expect(got).To(Equal([]upcloud.Label{
-		{Key: upcloudapi.LabelManagedBy, Value: "uck"},
+		{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue},
 		{Key: upcloudapi.LabelUID, Value: testUID},
 	}))
 
 	// Test new key names are also filtered; result is OwnerLabels, sorted
 	got = upcloudapi.DesiredLabels(owner(), map[string]string{upcloudapi.LabelManagedBy: "evil", upcloudapi.LabelUID: "hijack"})
 	g.Expect(got).To(Equal([]upcloud.Label{
-		{Key: upcloudapi.LabelManagedBy, Value: "uck"},
+		{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue},
 		{Key: upcloudapi.LabelUID, Value: testUID},
 	}))
 }

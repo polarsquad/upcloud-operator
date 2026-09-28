@@ -167,7 +167,7 @@ func sweep(ctx context.Context, svc sweeper) (left, deleted, listFailures int) {
 
 func hasManagedBy(labels []upcloud.Label) bool {
 	for _, l := range labels {
-		if l.Key == upcloudapi.LabelManagedBy {
+		if l.Key == upcloudapi.LabelManagedBy && l.Value == upcloudapi.ManagedByValue {
 			return true
 		}
 	}
