@@ -1,10 +1,14 @@
-// Command cleanup removes every UpCloud resource the operator labelled
-// managed-by=uck, plus detached floating IPs in the sample zone. The real-API e2e
+// Command cleanup removes every UpCloud resource selected by the exact
+// key/value pair managed-by=uck, plus detached floating IPs in the sample
+// zone. Resources labelled managed-by=<other-value> (e.g., managed-by=terraform)
+// are not swept. Pre-UCK managed-by=upcloud-operator resources from before the
+// rename are deliberately not swept and need manual review. The real-API e2e
 // workflow runs it in an always() step after the suite, so a suite killed
 // mid-teardown (timeout alarm, cancelled run) cannot leak paid resources. It
 // keeps no state from the suite: it selects by label alone, which is safe
 // because the test account is dedicated to this suite and the workflow
-// serialises runs.
+// serialises runs. Floating IPs are still selected without labels (the UpCloud
+// API's IP object has none), which is why a dedicated account is still required.
 //
 // It exits non-zero when nothing was moving by the deadline: no delete was
 // accepted on the last pass, or a list failed. Managed databases and object
@@ -167,7 +171,7 @@ func sweep(ctx context.Context, svc sweeper) (left, deleted, listFailures int) {
 
 func hasManagedBy(labels []upcloud.Label) bool {
 	for _, l := range labels {
-		if l.Key == upcloudapi.LabelManagedBy {
+		if l.Key == upcloudapi.LabelManagedBy && l.Value == upcloudapi.ManagedByValue {
 			return true
 		}
 	}

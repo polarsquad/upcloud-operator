@@ -231,19 +231,23 @@ The suite cannot clean up when its own process is killed by a timeout
 alarm, so the workflow ends with an `always()` step,
 `go run ./test/e2e-upcloud/cleanup`, that keeps no state from the suite
 and deletes every managed database, managed object storage, router and
-network labelled `managed-by=uck`, plus detached floating IPs in the
-sample zone. The step runs after a failed or timed-out suite; a manually
-cancelled run skips it, so a cancel can still leak the run's resources
-and needs a manual sweep. It retries for up to 15 minutes, because the
-services delete asynchronously and a network cannot go until its router
-has. The deadline is sized for that latency, and a delete still running
-on the UpCloud side when it fires (a managed object storage delete has
-taken over 20 minutes) is reported as in flight and the step passes: the
-next dispatch re-sweeps anything that remains. The job fails only when
-nothing is moving: no delete was accepted on the last pass, or a list
-failed. Selecting by label alone is only safe because the UpCloud account
-is dedicated to this suite; do not run the workflow against an account
-that holds other operator-managed resources.
+network labelled by the exact key/value pair `managed-by=uck`, plus
+detached floating IPs in the sample zone. Resources labelled
+`managed-by=<other-value>` (e.g., from other tools) are not touched.
+Pre-UCK `managed-by=upcloud-operator` resources from before the rename
+are not swept and need manual deletion. The step runs after a failed or
+timed-out suite; a manually cancelled run skips it, so a cancel can still
+leak the run's resources and needs a manual sweep. It retries for up to
+15 minutes, because the services delete asynchronously and a network
+cannot go until its router has. The deadline is sized for that latency,
+and a delete still running on the UpCloud side when it fires (a managed
+object storage delete has taken over 20 minutes) is reported as in flight
+and the step passes: the next dispatch re-sweeps anything that remains.
+The job fails only when nothing is moving: no delete was accepted on the
+last pass, or a list failed. The dedicated-account requirement still
+holds because floating IPs are released without label filtering; do not
+run the workflow against an account that holds other operator-managed
+resources.
 
 Runs are serialised by a `concurrency` group: every run shares the one
 UpCloud account, so two at once could collide on network ranges and the
