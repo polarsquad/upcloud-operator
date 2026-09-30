@@ -3,9 +3,11 @@ package objectstorage
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"testing"
 
+	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/request"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,6 +117,9 @@ func TestPolicyCreateRejectsInventedResourceNamespace(t *testing.T) {
 
 	err := a.Create(context.Background(), p)
 	g.Expect(err).To(HaveOccurred())
+	problem := &upcloud.Problem{}
+	g.Expect(errors.As(err, &problem)).To(BeTrue())
+	g.Expect(problem.Status).To(Equal(http.StatusBadRequest))
 	g.Expect(err.Error()).To(ContainSubstring("Policy has invalid resource"))
 	g.Expect(api.Policies[parentUUID]).To(BeEmpty())
 }
