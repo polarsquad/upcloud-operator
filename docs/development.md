@@ -126,6 +126,7 @@ the same group.
    test could not catch: the object storage fake rejects policy
    `Resource` values in the invented `arn:upcloud:` namespace with 400,
    and a test applies the policy sample through it.
+   Envtest specs run the manager in background goroutines, so they read fake state only inside the fake's `Inspect` method, never through the exported maps directly, and `make test` runs with `-race`.
 
 5. **Narrow interface.** If the kind needs a method the group interface
    does not have, add it to `internal/upcloudapi/<group>.go` and keep

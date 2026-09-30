@@ -443,3 +443,12 @@ func (f *NetworkAPI) DeleteNetworkPeering(_ context.Context, r *request.DeleteNe
 	delete(f.Peerings, r.UUID)
 	return nil
 }
+
+// Inspect calls fn while holding the fake's mutex.
+// fn must not call any fake method (the mutex is not reentrant).
+// fn must copy out values rather than retain pointers.
+func (f *NetworkAPI) Inspect(fn func(*NetworkAPI)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}

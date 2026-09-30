@@ -12,6 +12,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
 var _ = Describe("Gateway group end to end against the fake API", func() {
@@ -80,7 +81,12 @@ var _ = Describe("Gateway group end to end against the fake API", func() {
 		Expect(k8sClient.Delete(ctx, tun)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, conn)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, gw)).To(Succeed())
-		Eventually(func() int { return len(gwAPI.Gateways) }, "30s", "250ms").Should(BeZero())
+		Eventually(func() (total int) {
+			gwAPI.Inspect(func(a *fake.GatewayAPI) {
+				total = len(a.Gateways)
+			})
+			return total
+		}, "30s", "250ms").Should(BeZero())
 		// The router is reconciled into the SAME fakeAPI the Network spec asserts
 		// on, so it must be torn down too, or its router leaks into that spec's
 		// final "fake is empty" check (Ginkgo runs the specs in random order).
@@ -88,6 +94,11 @@ var _ = Describe("Gateway group end to end against the fake API", func() {
 		Eventually(func() error {
 			return k8sClient.Get(ctx, client.ObjectKeyFromObject(router), &networkv1alpha1.Router{})
 		}, "30s", "250ms").Should(MatchError(apierrors.IsNotFound, "router CR should be gone after its finalizer ran"))
-		Eventually(func() int { return len(fakeAPI.Routers) }, "30s", "250ms").Should(BeZero())
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+				total = len(a.Routers)
+			})
+			return total
+		}, "30s", "250ms").Should(BeZero())
 	})
 })

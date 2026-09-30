@@ -11,6 +11,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	networkv1alpha1 "github.com/polarsquad/upcloud-operator/api/network/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
 var _ = Describe("Network group end to end against the fake API", func() {
@@ -43,7 +44,12 @@ var _ = Describe("Network group end to end against the fake API", func() {
 			return k8sClient.Get(ctx, client.ObjectKeyFromObject(net), &networkv1alpha1.Network{})
 		}, "20s", "250ms").Should(MatchError(apierrors.IsNotFound, "network CR should be gone after its finalizer ran"))
 		Expect(k8sClient.Delete(ctx, router)).To(Succeed())
-		Eventually(func() int { return len(fakeAPI.Networks) + len(fakeAPI.Routers) }, "20s", "250ms").Should(BeZero())
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+				total = len(a.Networks) + len(a.Routers)
+			})
+			return total
+		}, "20s", "250ms").Should(BeZero())
 	})
 
 	It("allocates a floating IP, then releases it", func(ctx SpecContext) {
@@ -62,12 +68,21 @@ var _ = Describe("Network group end to end against the fake API", func() {
 		// The IP is allocated in the fake with the floating flag set.
 		var f networkv1alpha1.FloatingIP
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(fip), &f)).To(Succeed())
-		Expect(fakeAPI.IPs[f.Status.Address]).NotTo(BeNil())
+		var present bool
+		fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+			present = a.IPs[f.Status.Address] != nil
+		})
+		Expect(present).To(BeTrue())
 
 		Expect(k8sClient.Delete(ctx, fip)).To(Succeed())
 		// The CR is gone only after its finalizer has run, which is after
 		// ReleaseIPAddress removed the address from the fake.
-		Eventually(func() int { return len(fakeAPI.IPs) }, "20s", "250ms").Should(BeZero())
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+				total = len(a.IPs)
+			})
+			return total
+		}, "20s", "250ms").Should(BeZero())
 	})
 
 	It("creates a network peering between a local network and a peer, then tears it down", func(ctx SpecContext) {
@@ -106,14 +121,28 @@ var _ = Describe("Network group end to end against the fake API", func() {
 		// The peering references the local network's UpCloud UUID and the peer.
 		var p networkv1alpha1.NetworkPeering
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(peering), &p)).To(Succeed())
-		Expect(fakeAPI.Peerings[p.Status.UUID].Network.UUID).To(Equal(localUUID))
-		Expect(fakeAPI.Peerings[p.Status.UUID].PeerNetwork.UUID).To(Equal("peer-net-1"))
+		peeringUUID := p.Status.UUID
+		fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+			Expect(a.Peerings[peeringUUID].Network.UUID).To(Equal(localUUID))
+			Expect(a.Peerings[peeringUUID].PeerNetwork.UUID).To(Equal("peer-net-1"))
+		})
 
 		// Delete the peering first (the network must not be deleted while a
 		// peering references it), then the network.
 		Expect(k8sClient.Delete(ctx, peering)).To(Succeed())
-		Eventually(func() int { return len(fakeAPI.Peerings) }, "20s", "250ms").Should(BeZero())
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+				total = len(a.Peerings)
+			})
+			return total
+		}, "20s", "250ms").Should(BeZero())
 		Expect(k8sClient.Delete(ctx, net)).To(Succeed())
-		Eventually(func() bool { _, ok := fakeAPI.Networks[localUUID]; return !ok }, "20s", "250ms").Should(BeTrue())
+		Eventually(func() (isGone bool) {
+			fakeAPI.Inspect(func(a *fake.NetworkAPI) {
+				_, ok := a.Networks[localUUID]
+				isGone = !ok
+			})
+			return isGone
+		}, "20s", "250ms").Should(BeTrue())
 	})
 })

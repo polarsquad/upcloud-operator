@@ -803,3 +803,12 @@ func (f *ObjectStorageAPI) DeleteManagedObjectStorageCustomDomain(_ context.Cont
 	}
 	return NotFound("object storage custom domain")
 }
+
+// Inspect calls fn while holding the fake's mutex.
+// fn must not call any fake method (the mutex is not reentrant).
+// fn must copy out values rather than retain pointers.
+func (f *ObjectStorageAPI) Inspect(fn func(*ObjectStorageAPI)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}

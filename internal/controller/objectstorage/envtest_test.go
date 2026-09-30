@@ -11,6 +11,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
 // Object names are prefixed with "mos-" so the single spec's objects do not
@@ -117,17 +118,19 @@ var _ = Describe("Object storage group end to end against the fake API", func() 
 		Expect(k8sClient.Delete(ctx, svc)).To(Succeed())
 
 		// Deleting the whole chain empties the fake.
-		Eventually(func() int {
-			total := len(fakeAPI.Services)
-			for _, us := range fakeAPI.Users {
-				total += len(us)
-			}
-			for _, ps := range fakeAPI.Policies {
-				total += len(ps)
-			}
-			for _, bs := range fakeAPI.Buckets {
-				total += len(bs)
-			}
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.ObjectStorageAPI) {
+				total = len(a.Services)
+				for _, us := range a.Users {
+					total += len(us)
+				}
+				for _, ps := range a.Policies {
+					total += len(ps)
+				}
+				for _, bs := range a.Buckets {
+					total += len(bs)
+				}
+			})
 			return total
 		}, "20s", "250ms").Should(BeZero())
 	})

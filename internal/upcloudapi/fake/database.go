@@ -428,3 +428,12 @@ func removeAt[T any](in []T, i int) []T {
 	out := make([]T, 0, len(in)-1)
 	return append(append(out, in[:i]...), in[i+1:]...)
 }
+
+// Inspect calls fn while holding the fake's mutex.
+// fn must not call any fake method (the mutex is not reentrant).
+// fn must copy out values rather than retain pointers.
+func (f *DatabaseAPI) Inspect(fn func(*DatabaseAPI)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}

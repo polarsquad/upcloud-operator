@@ -11,6 +11,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	lb "github.com/polarsquad/upcloud-operator/api/loadbalancer/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
 // Object names are prefixed with "lb-" so this spec's objects do not collide
@@ -155,22 +156,19 @@ var _ = Describe("Load balancer group end to end against the fake API", func() {
 		Expect(k8sClient.Delete(ctx, svc)).To(Succeed())
 
 		// Deleting the whole chain empties the fake.
-		Eventually(func() int {
-			total := len(fakeAPI.LoadBalancers)
-			for _, lbw := range fakeAPI.LoadBalancers {
-				total += len(lbw.Frontends)
-				total += len(lbw.Backends)
-				total += len(lbw.Resolvers)
-				for _, f := range lbw.Frontends {
-					total += len(f.Rules)
-					total += len(f.TLSConfigs)
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.LoadBalancerAPI) {
+				total = len(a.LoadBalancers) + len(a.CertificateBundles)
+				for _, lbw := range a.LoadBalancers {
+					total += len(lbw.Frontends) + len(lbw.Backends) + len(lbw.Resolvers)
+					for _, f := range lbw.Frontends {
+						total += len(f.Rules) + len(f.TLSConfigs)
+					}
+					for _, b := range lbw.Backends {
+						total += len(b.Members) + len(b.TLSConfigs)
+					}
 				}
-				for _, b := range lbw.Backends {
-					total += len(b.Members)
-					total += len(b.TLSConfigs)
-				}
-			}
-			total += len(fakeAPI.CertificateBundles)
+			})
 			return total
 		}, "20s", "250ms").Should(BeZero())
 	})

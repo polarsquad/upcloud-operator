@@ -11,6 +11,7 @@ import (
 	"github.com/polarsquad/upcloud-operator/api/common"
 	databasev1alpha1 "github.com/polarsquad/upcloud-operator/api/database/v1alpha1"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
+	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
 
 var _ = Describe("Database group end to end against the fake API", func() {
@@ -72,11 +73,13 @@ var _ = Describe("Database group end to end against the fake API", func() {
 		Expect(k8sClient.Delete(ctx, user)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, ldb)).To(Succeed())
 		Expect(k8sClient.Delete(ctx, md)).To(Succeed())
-		Eventually(func() int {
-			total := len(fakeAPI.Databases)
-			for _, dbs := range fakeAPI.LogicalDBs {
-				total += len(dbs)
-			}
+		Eventually(func() (total int) {
+			fakeAPI.Inspect(func(a *fake.DatabaseAPI) {
+				total = len(a.Databases)
+				for _, dbs := range a.LogicalDBs {
+					total += len(dbs)
+				}
+			})
 			return total
 		}, "20s", "250ms").Should(BeZero())
 	})

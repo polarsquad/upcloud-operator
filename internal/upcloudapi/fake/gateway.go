@@ -411,3 +411,12 @@ func (f *GatewayAPI) DeleteGatewayConnectionTunnel(_ context.Context, r *request
 	c.Tunnels = append(c.Tunnels[:idx], c.Tunnels[idx+1:]...)
 	return nil
 }
+
+// Inspect calls fn while holding the fake's mutex.
+// fn must not call any fake method (the mutex is not reentrant).
+// fn must copy out values rather than retain pointers.
+func (f *GatewayAPI) Inspect(fn func(*GatewayAPI)) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	fn(f)
+}
