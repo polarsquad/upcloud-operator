@@ -3,7 +3,6 @@ package objectstorage
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/request"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/polarsquad/upcloud-operator/api/common"
 	objectstoragev1alpha1 "github.com/polarsquad/upcloud-operator/api/objectstorage/v1alpha1"
+	"github.com/polarsquad/upcloud-operator/config/samples"
 	"github.com/polarsquad/upcloud-operator/internal/reconciler"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
 )
@@ -123,8 +123,7 @@ func TestPolicyCreateRejectsInventedResourceNamespace(t *testing.T) {
 // resource validation so a bad sample fails here, not on a dispatch.
 func TestPolicySampleDocumentIsAccepted(t *testing.T) {
 	g := NewWithT(t)
-	raw, err := os.ReadFile("../../../config/samples/objectstorage_v1alpha1_objectstoragepolicy.yaml")
-	g.Expect(err).NotTo(HaveOccurred())
+	raw := samples.ObjectStoragePolicy
 	sample := &objectstoragev1alpha1.ObjectStoragePolicy{}
 	g.Expect(yaml.Unmarshal(raw, sample)).To(Succeed())
 	g.Expect(sample.Spec.Document).NotTo(BeEmpty())

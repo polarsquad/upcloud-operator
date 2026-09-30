@@ -15,21 +15,6 @@ import (
 
 var _ upcloudapi.NetworkAPI = (*NetworkAPI)(nil)
 
-// NotFound is the error the real API returns for unknown identifiers.
-func NotFound(what string) error {
-	return &upcloud.Problem{Status: http.StatusNotFound, Title: what + " not found"}
-}
-
-// Conflict mimics a 409 from the API.
-func Conflict(what string) error {
-	return &upcloud.Problem{Status: http.StatusConflict, Title: what + " already exists"}
-}
-
-// Invalid mimics a 400 validation error from the API.
-func Invalid(msg string) error {
-	return &upcloud.Problem{Status: http.StatusBadRequest, Title: msg}
-}
-
 func hasAllLabels(labels []upcloud.Label, filters []request.QueryFilter) bool {
 	for _, f := range filters {
 		fl, ok := f.(request.FilterLabel)
