@@ -391,7 +391,7 @@ func allProbesGone(ctx context.Context) (bool, string) {
 }
 
 // sweepLabelled deletes any UpCloud network or router still carrying the
-// operator's managed-by label with a uid label this run created (an orphan
+// operator's managed-by label with a k8s-uid label value this run created (an orphan
 // left behind, for example by a crash between create and finalizer delete).
 //
 // The sweep is a cost safety net, not a substitute for the operator's
@@ -412,6 +412,12 @@ func sweepLabelled(api networkSweeper, report func(string)) {
 			known[p.crUID] = true
 		}
 	}
+	unproven := map[string]bool{}
+	for _, p := range probes {
+		if p.crUID == "" && p.uuid != "" {
+			unproven[p.uuid] = true
+		}
+	}
 	// UpCloud refuses network deletion while its router still exists.
 	if rts, err := api.GetRouters(ctx); err == nil {
 		for i := range rts.Routers {
@@ -420,6 +426,8 @@ func sweepLabelled(api networkSweeper, report func(string)) {
 				state := crStateOf("router", uidOf(r.Labels))
 				derr := api.DeleteRouter(ctx, &upcloudrequest.DeleteRouterRequest{UUID: r.UUID})
 				report(leftoverMessage("router", r.UUID, state, derr))
+			} else if hasManagedBy(r.Labels) && unproven[r.UUID] {
+				report(leftoverMessage("router", r.UUID, "its CR UID was not recorded; run ownership is unproven and the router was not swept", nil))
 			}
 		}
 	}
@@ -430,6 +438,8 @@ func sweepLabelled(api networkSweeper, report func(string)) {
 				state := crStateOf("network", uidOf(n.Labels))
 				derr := api.DeleteNetwork(ctx, &upcloudrequest.DeleteNetworkRequest{UUID: n.UUID})
 				report(leftoverMessage("network", n.UUID, state, derr))
+			} else if hasManagedBy(n.Labels) && unproven[n.UUID] {
+				report(leftoverMessage("network", n.UUID, "its CR UID was not recorded; run ownership is unproven and the network was not swept", nil))
 			}
 		}
 	}
@@ -562,6 +572,9 @@ func collectLeakedCRs() {
 				continue
 			}
 			known[key] = true
+			if uid == "" {
+				_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: %s %s has no metadata.uid; %q will be reported if left behind but cannot be swept\n", k.name, obj.GetName(), ident)
+			}
 			verifiable := k.verifiable && ident != ""
 			probes = append(probes, probe{
 				kind: k.name, uuid: ident, crUID: uid,

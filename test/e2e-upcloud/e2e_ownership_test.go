@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -124,6 +125,100 @@ func TestSweepRunOwnership(t *testing.T) {
 				}
 			} else if len(api.Routers) != 1 || len(api.Networks) != 1 {
 				t.Fatalf("swept resources without proven run ownership: %v", api.Calls)
+			}
+		})
+	}
+}
+
+func TestSweepReportsUnprovenOwnership(t *testing.T) {
+	saved := probes
+	t.Cleanup(func() { probes = saved })
+
+	cases := []struct {
+		name        string
+		setup       func() ([]probe, *fake.NetworkAPI, *[]string)
+		wantFailures int
+		checkFn     func(t *testing.T, failures []string, api *fake.NetworkAPI)
+	}{
+		{
+			name: "still present",
+			setup: func() ([]probe, *fake.NetworkAPI, *[]string) {
+				probes = []probe{
+					{kind: "router", uuid: "rt-unproven-1", crUID: ""},
+					{kind: ownershipNetworkKind, uuid: "net-unproven-1", crUID: ""},
+				}
+				api := fake.NewNetworkAPI()
+				labels := []upcloud.Label{
+					{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue},
+					{Key: upcloudapi.LabelUID, Value: "some-other-uid"},
+				}
+				api.Routers["rt-unproven-1"] = &upcloud.Router{UUID: "rt-unproven-1", Labels: labels}
+				api.Networks["net-unproven-1"] = &upcloud.Network{UUID: "net-unproven-1", Labels: labels}
+				var failures []string
+				return probes, api, &failures
+			},
+			wantFailures: 2,
+			checkFn: func(t *testing.T, failures []string, api *fake.NetworkAPI) {
+				if len(api.Routers) != 1 || len(api.Networks) != 1 {
+					t.Fatalf("resources were deleted when they should not be: routers=%v networks=%v", api.Routers, api.Networks)
+				}
+				foundRouter := false
+				foundNetwork := false
+				for _, f := range failures {
+					if strings.Contains(f, "rt-unproven-1") {
+						foundRouter = true
+					}
+					if strings.Contains(f, "net-unproven-1") {
+						foundNetwork = true
+					}
+				}
+				if !foundRouter || !foundNetwork {
+					t.Fatalf("expected failures containing resource UUIDs; got: %v", failures)
+				}
+			},
+		},
+		{
+			name: "already deleted",
+			setup: func() ([]probe, *fake.NetworkAPI, *[]string) {
+				probes = []probe{
+					{kind: "router", uuid: "rt-unproven-1", crUID: ""},
+					{kind: ownershipNetworkKind, uuid: "net-unproven-1", crUID: ""},
+				}
+				api := fake.NewNetworkAPI()
+				var failures []string
+				return probes, api, &failures
+			},
+			wantFailures: 0,
+		},
+		{
+			name: "owned by other run",
+			setup: func() ([]probe, *fake.NetworkAPI, *[]string) {
+				probes = []probe{}
+				api := fake.NewNetworkAPI()
+				labels := []upcloud.Label{
+					{Key: upcloudapi.LabelManagedBy, Value: upcloudapi.ManagedByValue},
+					{Key: upcloudapi.LabelUID, Value: "other-run-uid"},
+				}
+				api.Routers["rt-other-1"] = &upcloud.Router{UUID: "rt-other-1", Labels: labels}
+				api.Networks["net-other-1"] = &upcloud.Network{UUID: "net-other-1", Labels: labels}
+				var failures []string
+				return probes, api, &failures
+			},
+			wantFailures: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, api, failuresPtr := tc.setup()
+			sweepLabelled(api, func(msg string) { *failuresPtr = append(*failuresPtr, msg) })
+
+			if len(*failuresPtr) != tc.wantFailures {
+				t.Fatalf("got %d failures, want %d: %v", len(*failuresPtr), tc.wantFailures, *failuresPtr)
+			}
+
+			if tc.checkFn != nil {
+				tc.checkFn(t, *failuresPtr, api)
 			}
 		})
 	}
