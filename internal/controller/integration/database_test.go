@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
@@ -59,7 +60,7 @@ func TestParentFirstDatabaseUserConvergesAfterCascade(t *testing.T) {
 	// Controlled transient-409 retry, NOT evidence that users block database
 	// deletion or vice versa. This suite has no manager/background goroutine,
 	// so the one-shot fault cannot race another fake API caller.
-	api.FailNext = fake.Conflict("controlled transient user delete")
+	api.FailNext = &upcloud.Problem{Status: http.StatusConflict, Title: "controlled transient user delete"}
 	requirePending(t, u, user)
 	_, err = api.GetManagedDatabaseUser(ctx, &request.GetManagedDatabaseUserRequest{ServiceUUID: serviceID, Username: username})
 	g.Expect(err).NotTo(HaveOccurred(), "the controlled failure must not remove the user")
