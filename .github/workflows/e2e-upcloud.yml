@@ -53,11 +53,11 @@ jobs:
         run: |
           go mod tidy
           # Alarm sizing and incident history: docs/development.md
-          # (Real-API e2e timeouts). Keep -timeout > -ginkgo.timeout >
-          # the suite worst case, or a mid-teardown kill leaks paid
-          # resources into the next dispatch.
-          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -timeout 125m \
-            -ginkgo.timeout 120m -v -ginkgo.v
+          # (Real-API e2e timeouts). Preflight adds up to 30m.
+          # Keep -timeout > -ginkgo.timeout > the suite worst case,
+          # or a mid-teardown kill leaks paid resources into the next dispatch.
+          go test -tags=e2e_upcloud ./test/e2e-upcloud/ -timeout 155m \
+            -ginkgo.timeout 150m -v -ginkgo.v
 
       # Runs even when the suite was killed mid-teardown by a timeout alarm,
       # so a failed or timed-out run cannot leak paid resources. A manually

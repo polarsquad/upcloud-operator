@@ -203,6 +203,21 @@ admin, with a UI):
 Then trigger it from Actions, e2e (real UpCloud API), Run workflow.
 One run provisions a real database for about 20 minutes.
 
+### Preflight
+
+Before the spec runs, BeforeSuite polls the UpCloud account to detect
+leftovers from a previous run (resources labelled managed-by=uck plus
+detached floating IPs in the sample zone). If found, it waits up to 30
+minutes for them to be removed, retrying every 20 seconds (the same
+removal logic as the cleanup tool). If resources are removed within the
+budget, an ERROR is logged, a Ginkgo report entry is added, and the suite
+continues. If cleanup times out or fails, BeforeSuite exits with a clear
+message naming the resources and telling the operator to run `go run
+./test/e2e-upcloud/cleanup` manually before dispatching again. A cancelled
+run's leftovers are picked up by the next dispatch's preflight, so the
+cleanup tool is a secondary safety net when preflight is skipped (manually
+cancelled runs do not enter BeforeSuite).
+
 ### Teardown order
 
 `AfterSuite` removes what the run created, even when a spec failed halfway
@@ -239,11 +254,11 @@ services delete asynchronously and a network cannot go until its router
 has. The deadline is sized for that latency, and a delete still running
 on the UpCloud side when it fires (a managed object storage delete has
 taken over 20 minutes) is reported as in flight and the step passes: the
-next dispatch re-sweeps anything that remains. The job fails only when
-nothing is moving: no delete was accepted on the last pass, or a list
-failed. Selecting by label alone is only safe because the UpCloud account
-is dedicated to this suite; do not run the workflow against an account
-that holds other operator-managed resources.
+next dispatch re-sweeps anything that remains using the preflight check.
+The job fails only when nothing is moving: no delete was accepted on the
+last pass, or a list failed. Selecting by label alone is only safe because
+the UpCloud account is dedicated to this suite; do not run the workflow
+against an account that holds other operator-managed resources.
 
 Runs are serialised by a `concurrency` group: every run shares the one
 UpCloud account, so two at once could collide on network ranges and the
@@ -268,15 +283,15 @@ tracked in #67.
 
 ### Real-API e2e timeouts
 
-The suite's worst case is about 110.5m wall clock: BeforeSuite 2.5m,
-controller-ready 3m, six 5m Ready waits, a 20m Managed Object Storage
-Ready wait, a 15m database Ready wait, a 30m `waitForCRsGone` and a 5m
-`waitForGone` in the spec, then AfterSuite's own 5m `waitForGone` after
-its sweeps. AfterSuite skips `waitForCRsGone` when the spec already spent
-that budget, so it is counted once.
+The suite's worst case is about 140.5m wall clock: BeforeSuite preflight up
+to 30m, then 2.5m for cluster setup, controller-ready 3m, six 5m Ready
+waits, a 20m Managed Object Storage Ready wait, a 15m database Ready wait,
+a 30m `waitForCRsGone` and a 5m `waitForGone` in the spec, then AfterSuite's
+own 5m `waitForGone` after its sweeps. AfterSuite skips `waitForCRsGone`
+when the spec already spent that budget, so it is counted once.
 
-Two alarms must stay ordered above that: `-ginkgo.timeout 120m` (Ginkgo's
-own alarm, default 1h) below `-timeout 125m` (Go's alarm, default 10m).
+Two alarms must stay ordered above that: `-ginkgo.timeout 150m` (Ginkgo's
+own alarm, default 1h) below `-timeout 155m` (Go's alarm, default 10m).
 If either fires inside teardown it kills the deletes and leaks the run's
 paid resources into the next dispatch.
 
