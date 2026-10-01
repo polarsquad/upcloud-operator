@@ -121,14 +121,17 @@ func (a *ObjectStorageBucketAdapter) Update(ctx context.Context, b *objectstorag
 
 // Delete implements reconciler.Adapter. A non-empty bucket is refused (409)
 // and reported as pending with the API title until the user empties it;
-// a 404 counts as deleted; a successful delete is pending until gone.
+// deletionPolicy Orphan is the escape hatch for a bucket that must keep
+// its objects. A 404 counts as deleted; a successful delete is pending
+// until gone. The request targets the persisted status.name, never the
+// spec, so a later spec change cannot redirect deletion to another bucket.
 func (a *ObjectStorageBucketAdapter) Delete(ctx context.Context, b *objectstoragev1alpha1.ObjectStorageBucket) error {
 	if b.Status.ServiceUUID == "" || b.Status.Name == "" {
 		return nil
 	}
 	err := a.API.DeleteManagedObjectStorageBucket(ctx, &request.DeleteManagedObjectStorageBucketRequest{
 		ServiceUUID: b.Status.ServiceUUID,
-		Name:        b.ExternalName(),
+		Name:        b.Status.Name,
 	})
 	switch {
 	case err == nil:
