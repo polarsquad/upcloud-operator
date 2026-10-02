@@ -2,21 +2,116 @@ name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
+    branches: [main]
 
-permissions:
-  contents: write
-  packages: write
-  id-token: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/polarsquad/uck
 
 jobs:
+  build:
+    name: Build ${{ matrix.arch }} (native)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
+
+      - name: Log in to the GitHub Container Registry
+        if: github.ref_type == 'tag'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push arch image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: ${{ github.ref_type == 'tag' }}
+          provenance: false
+          sbom: false
+          tags: ${{ env.IMAGE }}:${{ github.ref_type == 'tag' && format('{0}-linux-{1}', github.ref_name, matrix.arch) || format('{0}-linux-{1}', github.sha, matrix.arch) }}
+
+  merge:
+    name: Merge manifest list
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
+
+      - name: Create and verify manifest list
+        id: publish
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create \
+            -t "$IMAGE:$TAG" \
+            "$IMAGE:$TAG-linux-amd64" \
+            "$IMAGE:$TAG-linux-arm64"
+          platforms=$(docker buildx imagetools inspect "$IMAGE:$TAG" \
+            --format '{{range .Manifest.Manifests}}{{.Platform.OS}}/{{.Platform.Architecture}} {{end}}')
+          for want in linux/amd64 linux/arm64; do
+            [[ " $platforms " == *" $want "* ]] || {
+              echo "::error::missing $want (got: $platforms)"
+              exit 1
+            }
+          done
+          digest=$(docker buildx imagetools inspect "$IMAGE:$TAG" \
+            --format '{{.Manifest.Digest}}')
+          [ -n "$digest" ] || { echo "::error::empty index digest"; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
   release:
-    name: Build, sign, publish
-    runs-on: ubuntu-latest
+    name: Sign and publish
+    needs: merge
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -28,35 +123,12 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
-        with:
-          platforms: amd64,arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
-
       - name: Log in to the GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push the multi-arch image
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          make docker-buildx IMG=${{ env.IMAGE }}:${TAG} PLATFORMS=linux/amd64,linux/arm64
-
-      - name: Capture the image digest
-        id: digest
-        run: |
-          # Top-level (multi-arch) digest, for precise digest-based signing.
-          # Fallback: if the template yields nothing, we sign by tag below
-          # (cosign resolves the tag to its digest).
-          d=$(docker buildx imagetools inspect ${{ env.IMAGE }}:${{ github.ref_name }} --format '{{.Manifest.Digest}}' 2>/dev/null | tail -1 || true)
-          echo "digest=${d}" >> "$GITHUB_OUTPUT"
 
       - name: Build the consolidated installer
         run: make build-installer IMG=${{ env.IMAGE }}:${{ github.ref_name }}
@@ -65,25 +137,18 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign the image (keyless via GitHub OIDC)
-        run: |
-          if [ -n "${{ steps.digest.outputs.digest }}" ]; then
-            cosign sign --yes ${{ env.IMAGE }}@${{ steps.digest.outputs.digest }}
-          else
-            # Fall back to the tag; cosign resolves it to the manifest list.
-            cosign sign --yes ${{ env.IMAGE }}:${{ github.ref_name }}
-          fi
+        env:
+          DIGEST: ${{ needs.merge.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"
 
       - name: Create or update the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Re-pointing a tag re-triggers this workflow; in that case the
-          # release already exists, so attach/replace the asset instead.
           if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
             gh release upload "${{ github.ref_name }}" dist/install.yaml --clobber
           else
             args=(--generate-notes)
-            # rc/alpha/beta tags become pre-releases; plain vX.Y.Z are final.
             case "${{ github.ref_name }}" in
               *rc*|*alpha*|*beta*) args+=(--prerelease) ;;
             esac

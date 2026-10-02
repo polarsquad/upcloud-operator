@@ -24,7 +24,6 @@ are not republished under the new name.
 | UpCloud ownership label | `managed-by=upcloud-operator` | `managed-by=uck` |
 | UpCloud HTTP user agent | `upcloud-operator` | `uck` |
 | Default smoke-test kind cluster | `upcloud-operator-test-e2e` | `uck-test-e2e` |
-| Buildx builder | `upcloud-operator-builder` | `uck-builder` |
 
 Role, ClusterRole, binding, and optional monitoring object names also use
 `uck-`. Update external references to those objects, not just the

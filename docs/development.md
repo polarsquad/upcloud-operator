@@ -161,10 +161,13 @@ the same group.
 
 ## Releasing
 
-Releases are cut from tags; the `Release` workflow builds and pushes the
-multi-arch image to `ghcr.io/polarsquad/uck`, signs it keylessly, builds
-`dist/install.yaml`, and publishes the GitHub release in
-`polarsquad/upcloud-operator`. Only releases cut after the rename use the
+Releases are cut from tags; the `Release` workflow builds each architecture
+(linux/amd64, linux/arm64) on a native runner without QEMU emulation. The
+per-arch tags `<tag>-linux-amd64` and `<tag>-linux-arm64` are intermediate
+artifacts only; only the `<tag>` manifest index is signed and supported. The
+workflow then signs the image keylessly, builds `dist/install.yaml`, and
+publishes the GitHub release in `polarsquad/upcloud-operator`.
+Only releases cut after the rename use the
 UCK image and Kubernetes object names; existing tags are not moved or
 republished. Choose a new version for `TAG` below. Before the first UCK
 release, confirm GHCR package ownership, Actions write access and public
