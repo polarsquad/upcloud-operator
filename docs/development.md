@@ -255,8 +255,7 @@ second one.
 
 ### Probe verifiability
 
-A `probe` is only polled by `waitForGone` when its `verifiable` field is
-true. The zero value is false, so a probe built as a struct literal is
+A `probe` is only polled by `allProbesGone` (and by extension `waitForGone`) when its `verifiable` field is true. The zero value is false, so a probe built as a struct literal is
 skipped by the gone-verification. Set `verifiable: true` explicitly on any
 probe that must be checked against the API, and give it a real `fetch`.
 Tests that only exercise the sweeps may leave it unset, but set it when the

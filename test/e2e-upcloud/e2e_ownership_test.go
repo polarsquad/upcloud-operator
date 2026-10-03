@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/UpCloudLtd/upcloud-go-api/v8/upcloud"
+	upcloudrequest "github.com/UpCloudLtd/upcloud-go-api/v8/upcloud/request"
 
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi"
 	"github.com/polarsquad/upcloud-operator/internal/upcloudapi/fake"
@@ -105,8 +106,17 @@ func TestSweepRunOwnership(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			probes = []probe{{kind: ownershipNetworkKind, uuid: cloudID, crUID: tc.knownUID, verifiable: true}}
 			api := fake.NewNetworkAPI()
+			probes = []probe{{
+				kind:       ownershipNetworkKind,
+				uuid:       cloudID,
+				crUID:      tc.knownUID,
+				verifiable: true,
+				fetch: func(ctx context.Context, u string) error {
+					_, err := api.GetNetworkDetails(ctx, &upcloudrequest.GetNetworkDetailsRequest{UUID: u})
+					return err
+				},
+			}}
 			labels := []upcloud.Label{
 				{Key: upcloudapi.LabelManagedBy, Value: tc.manager},
 				{Key: upcloudapi.LabelUID, Value: tc.labelUID},
@@ -124,6 +134,9 @@ func TestSweepRunOwnership(t *testing.T) {
 				}
 			} else if len(api.Routers) != 1 || len(api.Networks) != 1 {
 				t.Fatalf("swept resources without proven run ownership: %v", api.Calls)
+			}
+			if gone, detail := allProbesGone(context.Background()); gone != tc.wantDelete {
+				t.Fatalf("gone-verification disagrees with the sweep: gone=%v want %v (%s)", gone, tc.wantDelete, detail)
 			}
 		})
 	}
