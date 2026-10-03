@@ -302,8 +302,11 @@ that none of them leaked.
 
 The sample ManagedDatabase pins `properties.version`. UpCloud retires
 versions over time, so if the Ready wait fails with a 400 naming the
-version, list what is offered with `GET /1.3/database/plans` and bump the
-sample and the README example together.
+version, list what is offered with `GET /1.3/database/service-types/pg`
+(substitute the sample's `spec.type`): `properties.version.enum` holds
+the accepted values and `latest_available_version` the newest. Bump the
+sample and the README example together. `GET /1.3/database/plans` lists
+compute plan shapes, not versions.
 
 ## Known operational notes
 
