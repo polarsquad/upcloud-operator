@@ -1,8 +1,8 @@
-# Local tool pins. CI uses the versions in go.mod and Makefile; keep these in step.
+# Tool pins. CI and the devcontainer install kind from here via mise install kind; for the other tools CI uses go.mod and the Makefile, keep those in step.
 [tools]
 go = "1.26"
 kubebuilder = "4.15.0"
-kind = "0.31"
+kind = "0.31.0"
 kubectl = "1.36"
 golangci-lint = "2.12.2"
 

@@ -47,13 +47,16 @@ echo "------------------------------------"
 echo "Installing development tools..."
 echo "------------------------------------"
 
-# Install kind
-if ! command -v kind &> /dev/null; then
-  echo "Installing kind..."
-  curl -Lo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/latest/kind-linux-${ARCH}"
-  chmod +x /usr/local/bin/kind
-  echo "kind installed successfully"
+# Install kind at the version pinned in mise.toml
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if ! command -v mise &> /dev/null; then
+  echo "Installing mise..."
+  curl -fsSL https://mise.run | MISE_VERSION="v2026.10.15" MISE_INSTALL_PATH=/usr/local/bin/mise sh
 fi
+echo "Installing kind from mise.toml..."
+mise -C "${REPO_ROOT}" install kind
+ln -sf "$(mise -C "${REPO_ROOT}" which kind)" /usr/local/bin/kind
+echo "kind installed successfully"
 
 # Generate kind bash completion
 if command -v kind &> /dev/null; then

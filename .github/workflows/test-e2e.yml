@@ -27,14 +27,26 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Install the latest version of kind
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-$(go env GOARCH)
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+      - name: Setup mise
+        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
+        with:
+          version: v2026.10.15 # mise
+          install: false
+          cache: false
+
+      - name: Install kind
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: mise install kind
 
       - name: Verify kind installation
-        run: kind version
+        run: |
+          want="v$(mise current kind)"
+          kind version
+          kind version | grep -qF "kind ${want} " || {
+            echo "ERROR: kind on PATH is not the mise.toml pin ${want}"
+            exit 1
+          }
 
       - name: Running Test e2e
         run: |
